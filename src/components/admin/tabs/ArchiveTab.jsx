@@ -7,7 +7,7 @@ export const ArchiveTab = () => {
 
   return (
     <>
-      <h2 className="text-md sm:text-lg font-semibold mb-3 sm:mb-4">Arsip Shift per User</h2>
+      <h2 className="text-md sm:text-lg font-semibold mb-3 sm:mb-4">Arsip Shift</h2>
       <ArchivedShiftsList workers={workers} shiftArchives={shiftArchives} onDeleteShift={removeShiftArchive} />
     </>
   );

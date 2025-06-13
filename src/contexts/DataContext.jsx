@@ -267,56 +267,117 @@ export const DataProvider = ({ children }) => {
   };
 
   const updateVoucherStock = async (voucherId, quantityChanged, transactionType, description) => {
-    const shiftId = activeShift?.id || null;
-    const userIdForLog = user.role === 'admin' ? null : user.id;
-    const result = await updateVoucherStockAPI({ voucherId, quantityChanged, transactionType, description, userId: userIdForLog, username: user.name, shiftId });
-    
-    if (result.success && typeof result.data === 'number') {
-      setVouchers(prevVouchers => 
-        prevVouchers.map(v => v.id === voucherId ? { ...v, current_stock: result.data } : v)
-      );
-    }
-    return result;
-  };
+  const shiftId = activeShift?.id || null;
+  const userIdForLog = user.role === 'admin' ? null : user.id;
+
+  const result = await updateVoucherStockAPI({
+    voucherId,
+    quantityChanged,
+    transactionType,
+    description,
+    userId: userIdForLog,
+    username: user.name,
+    shiftId
+  });
+
+  if (result.success) {
+    await fetchData(fetchVouchersAPI, setVouchers, "re-fetching vouchers after stock update");
+  }
+
+  return result;
+};
+
   
   const sellVoucherAndUpdateShift = async (voucher) => {
-    if (!activeShift) return { success: false, error: "Tidak ada shift aktif untuk mencatat penjualan." };
+  if (!activeShift) return { success: false, error: "Tidak ada shift aktif untuk mencatat penjualan." };
 
-    const stockUpdateResult = await updateVoucherStock(voucher.id, -1, 'PENJUALAN', voucher.name);
-    if (!stockUpdateResult.success) return { success: false, error: stockUpdateResult.error?.message || "Gagal memperbarui stok voucher." };
+  const stockUpdateResult = await updateVoucherStock(voucher.id, -1, 'PENJUALAN', voucher.name);
+  if (!stockUpdateResult.success) return { success: false, error: stockUpdateResult.error?.message || "Gagal memperbarui stok voucher." };
 
-    const profit = voucher.sell_price - voucher.cost_price;
-    const newTransaction = { id: `tx_vcr_${Date.now()}`, timestamp: new Date().toISOString(), type: 'in', amount: voucher.sell_price, description: voucher.name, adminFee: 0, productAdminFee: profit >= 0 ? profit : 0 };
-    
-    const updatedTransactions = [...activeShift.transactions, newTransaction];
-    const newTotals = processTransactionTotals(updatedTransactions);
-    const newAppBalances = await recalculateAppBalances(activeShift.id, activeShift.initial_app_balances, updatedTransactions);
-
-    const updatedShiftDetails = { ...activeShift, transactions: updatedTransactions, ...newTotals, app_balances: newAppBalances };
-
-    const shiftUpdateResult = await updateActiveShift(updatedShiftDetails);
-    if (!shiftUpdateResult.success) return { success: false, error: "Stok voucher diperbarui, tetapi gagal mencatat transaksi di shift." };
-    return { success: true };
+  const profit = voucher.sell_price - voucher.cost_price;
+  const newTransaction = {
+    id: `tx_vcr_${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    type: 'in',
+    amount: voucher.sell_price,
+    description: voucher.name,
+    adminFee: 0,
+    productAdminFee: profit >= 0 ? profit : 0
   };
+
+  const updatedTransactions = [...activeShift.transactions, newTransaction];
+  const newTotals = processTransactionTotals(updatedTransactions);
+  const newAppBalances = await recalculateAppBalances(
+    activeShift.id,
+    activeShift.initial_app_balances,
+    updatedTransactions
+  );
+
+  const updatedShiftDetails = {
+    ...activeShift,
+    transactions: updatedTransactions,
+    ...newTotals,
+    app_balances: newAppBalances
+  };
+
+  const shiftUpdateResult = await updateActiveShift(updatedShiftDetails);
+  if (!shiftUpdateResult.success) {
+    return {
+      success: false,
+      error: "Stok voucher diperbarui, tetapi gagal mencatat transaksi di shift."
+    };
+  }
+
+  
+  await fetchData(fetchVouchersAPI, setVouchers, "refresh setelah penjualan voucher");
+
+  return { success: true };
+};
+
 
   const updateManualAppBalance = async (appKey, appName, amount, type, description) => {
-    if (!activeShift) return { success: false, error: "Tidak ada shift aktif." };
+  if (!activeShift) return { success: false, error: "Tidak ada shift aktif." };
 
-    const previousBalance = parseSafeNumber(activeShift.app_balances[appKey]);
-    const numericAmount = parseSafeNumber(amount);
-    const changeAmount = type === 'PENAMBAHAN' ? numericAmount : -numericAmount;
-    const newBalance = previousBalance + changeAmount;
-    
-    const logResult = await logAppBalanceUpdateAPI({ shift_id: activeShift.id, user_id: user.id, username: user.name, app_key: appKey, app_name: appName, type, amount: numericAmount, description, previous_balance: previousBalance, new_balance: newBalance });
-    if (!logResult.success) {
-        return { success: false, error: "Gagal mencatat log saldo." };
-    }
-    
-    const newAppBalances = { ...activeShift.app_balances, [appKey]: newBalance };
-    const shiftUpdateResult = await updateActiveShift({ ...activeShift, app_balances: newAppBalances });
+  const previousBalance = parseSafeNumber(activeShift.app_balances[appKey]);
+  const numericAmount = parseSafeNumber(amount);
+  const changeAmount = type === 'PENAMBAHAN' ? numericAmount : -numericAmount;
+  const newBalance = previousBalance + changeAmount;
 
-    return shiftUpdateResult;
+  const logResult = await logAppBalanceUpdateAPI({
+    shift_id: activeShift.id,
+    user_id: user.id,
+    username: user.name,
+    app_key: appKey,
+    app_name: appName,
+    type,
+    amount: numericAmount,
+    description,
+    previous_balance: previousBalance,
+    new_balance: newBalance
+  });
+
+  if (!logResult.success) {
+    return { success: false, error: "Gagal mencatat log saldo." };
+  }
+
+  // ⬇️ Tambahkan baris ini untuk update context secara langsung
+  if (logResult.data) {
+    setCurrentUserAppBalanceLogs(prev => [logResult.data, ...prev]);
+  }
+
+  const newAppBalances = {
+    ...activeShift.app_balances,
+    [appKey]: newBalance
   };
+
+  const shiftUpdateResult = await updateActiveShift({
+    ...activeShift,
+    app_balances: newAppBalances
+  });
+
+  return shiftUpdateResult;
+};
+
 
   const value = {
     workers, addWorker, removeWorker, updateWorkerPassword,

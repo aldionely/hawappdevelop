@@ -50,11 +50,11 @@ export const WorkerManagement = ({ workers, newWorker, setNewWorker, onAddWorker
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-md sm:text-lg font-semibold mb-3">Tambah Pekerja Baru</h2>
+        <h2 className="text-md sm:text-lg font-semibold mb-3">Tambah Shift Baru</h2>
         <form onSubmit={onAddWorker} className="space-y-3 p-3 border rounded-lg bg-white">
           <Input
             type="text"
-            placeholder="Nama Lengkap Pekerja"
+            placeholder="Nama Shift"
             value={newWorker.name}
             onChange={(e) => setNewWorker({ ...newWorker, name: e.target.value })}
             className="text-xs sm:text-sm"
@@ -73,14 +73,14 @@ export const WorkerManagement = ({ workers, newWorker, setNewWorker, onAddWorker
             onChange={(e) => setNewWorker({ ...newWorker, password: e.target.value })}
             className="text-xs sm:text-sm"
           />
-          <Button type="submit" size="sm" className="text-xs">Tambah Pekerja</Button>
+          <Button type="submit" size="sm" className="text-xs">Tambah shift</Button>
         </form>
       </div>
 
       <div>
-        <h2 className="text-md sm:text-lg font-semibold mb-3">Daftar Pekerja</h2>
+        <h2 className="text-md sm:text-lg font-semibold mb-3">Daftar Shift</h2>
         {workers.length === 0 ? (
-          <p className="text-center text-gray-500 py-4 text-xs sm:text-sm">Belum ada pekerja terdaftar.</p>
+          <p className="text-center text-gray-500 py-4 text-xs sm:text-sm">Belum ada shift terdaftar.</p>
         ) : (
           <div className="space-y-2">
             {workers.map((worker) => (
@@ -133,7 +133,7 @@ export const WorkerManagement = ({ workers, newWorker, setNewWorker, onAddWorker
                       <AlertDialogHeader>
                         <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Tindakan ini akan menghapus pekerja {worker.name} dan semua data shift terkait secara permanen.
+                          Tindakan ini akan menghapus akun dari shift {worker.name} dan semua data shift terkait secara permanen.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>

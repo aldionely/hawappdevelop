@@ -81,7 +81,7 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
     );
 };
 
-const VoucherHistoryList = ({ transactions }) => {
+const VoucherHistoryList = ({ transactions, voucher }) => {
     const voucherSales = useMemo(() => {
         return transactions
             .filter(tx => tx.productAdminFee !== undefined && tx.description.includes(tx.description))

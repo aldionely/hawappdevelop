@@ -212,12 +212,16 @@ export const ShiftInProgress = ({ shiftData, onAddTransaction, onEndShift }) => 
           <p>Uang Seharusnya: Rp {expectedBalance.toLocaleString()}</p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-            <p className="text-green-600">Uang Masuk: Rp {(shiftData.totalIn || 0).toLocaleString()}</p>
-            <p className="text-red-600">Uang Keluar: Rp {(shiftData.totalOut || 0).toLocaleString()}</p>
+            <p className="text-green-600">Uang Masuk:</p>
+            <p> Rp {(shiftData.totalIn || 0).toLocaleString()}</p>
+            <p className="text-red-600">Uang Keluar:</p>
+            <p> Rp {(shiftData.totalOut || 0).toLocaleString()}</p>
             <p className={`font-semibold ${(shiftData.uangBersih || 0) >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
-                Uang Bersih: Rp {(shiftData.uangBersih || 0).toLocaleString()}
+                Uang Bersih:
             </p>
-             <p className="text-purple-600">Total Admin: Rp {(shiftData.totalAdminFee || 0).toLocaleString()}</p>
+            <p> Rp {(shiftData.uangBersih || 0).toLocaleString()}</p>
+             <p className="text-purple-600">Total Admin:</p>
+             <p> Rp {(shiftData.totalAdminFee || 0).toLocaleString()}</p>
         </div>
       </div>
 

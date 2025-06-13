@@ -162,7 +162,7 @@ Rincian Stok:\n`;
   }, {});
 
   Object.keys(categorizedVouchers).sort().forEach(category => {
-    reportContent += `\n${category.toUpperCase()}\n\n`;
+    reportContent += `\n===== ${category.toUpperCase()} =====\n\n`;
     categorizedVouchers[category]
       .sort((a,b) => a.name.localeCompare(b.name))
       .forEach(voucher => {

@@ -186,7 +186,7 @@ export const TransactionForm = ({ onAddTransaction, editingTransaction, onSaveEd
           ref={saldoKeluarAplikasiInputRef}
           type="text"
           inputMode="decimal"
-          placeholder="Saldo Keluar Aplikasi (Opsional, Rp)"
+          placeholder="Saldo Keluar (Opsional)"
           value={displaySaldoKeluarAplikasi}
           onChange={handleSaldoKeluarAplikasiChange}
           className="text-xs sm:text-sm"
@@ -197,7 +197,7 @@ export const TransactionForm = ({ onAddTransaction, editingTransaction, onSaveEd
           ref={saldoMasukAplikasiInputRef}
           type="text"
           inputMode="decimal"
-          placeholder="Saldo Masuk Aplikasi (Opsional, Rp)"
+          placeholder="Saldo Masuk (Opsional)"
           value={displaySaldoMasukAplikasi}
           onChange={handleSaldoMasukAplikasiChange}
           className="text-xs sm:text-sm"
@@ -207,7 +207,7 @@ export const TransactionForm = ({ onAddTransaction, editingTransaction, onSaveEd
         ref={amountInputRef}
         type="text"
         inputMode="decimal"
-        placeholder={currentType === 'out' ? "Jumlah Uang Keluar Fisik (Rp)" : "Jumlah Uang Masuk Fisik (Rp)"}
+        placeholder={currentType === 'out' ? "Jumlah Uang Keluar" : "Jumlah Uang Masuk"}
         value={displayAmount}
         onChange={handleAmountChange}
         className="text-xs sm:text-sm"

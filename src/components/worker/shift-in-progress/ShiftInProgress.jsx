@@ -22,23 +22,49 @@ export const ShiftInProgress = ({ shiftData, onAddTransaction, onEditTransaction
       className="space-y-4"
     >
       <div className="p-3 border rounded-lg bg-white">
-        <h2 className="text-md sm:text-lg font-semibold mb-2">Shift Sedang Berjalan</h2>
-        <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-          <p>Mulai: {formatTime(shiftData.startTime)}</p>
-          <p>Lokasi: {shiftData.lokasi}</p>
-          <p>Kas Awal: Rp {(shiftData.kasAwal || 0).toLocaleString()}</p>
-          <p>Uang Seharusnya: Rp {expectedBalance.toLocaleString()}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-            <p className="text-green-600">Uang Masuk: Rp {(shiftData.totalIn || 0).toLocaleString()}</p>
-            <p className="text-red-600">Uang Keluar: Rp {(shiftData.totalOut || 0).toLocaleString()}</p>
-            <p className={`font-semibold ${(shiftData.uangTransaksi || 0) >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
-                Uang Transaksi: Rp {(shiftData.uangTransaksi || 0).toLocaleString()}
-            </p>
-             <p className="text-purple-600">Total Admin: Rp {(shiftData.totalAdminFee || 0).toLocaleString()}</p>
-        </div>
-      </div>
+  <h2 className="text-md sm:text-lg font-semibold mb-2">Shift Sedang Berjalan</h2>
 
+  {/* Baris waktu dan lokasi tetap */}
+  <div className="grid grid-cols-2 gap-2 text-xs mb-3 ml-12">
+    <p>Mulai: {formatTime(shiftData.startTime)}</p>
+    <p>Lokasi: {shiftData.lokasi}</p>
+  </div>
+
+  {/* Nominal dengan label di atasnya */}
+  <div className="grid grid-cols-2 gap-2 text-xs mb-3 ml-12">
+    <div>
+      <p className="text-gray-600">Kas Awal</p>
+      <p>Rp {(shiftData.kasAwal || 0).toLocaleString()}</p>
+    </div>
+    <div>
+      <p className="text-gray-600">Uang Seharusnya</p>
+      <p>Rp {expectedBalance.toLocaleString()}</p>
+    </div>
+  </div>
+
+  <div className="grid grid-cols-2 gap-2 text-xs mb-3 ml-12">
+    <div>
+      <p className="text-green-600">Uang Masuk</p>
+      <p>Rp {(shiftData.totalIn || 0).toLocaleString()}</p>
+    </div>
+    <div>
+      <p className="text-red-600">Uang Keluar</p>
+      <p>Rp {(shiftData.totalOut || 0).toLocaleString()}</p>
+    </div>
+    <div>
+      <p className={`font-semibold ${(shiftData.uangTransaksi || 0) >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
+        Uang Transaksi
+      </p>
+      <p>
+        Rp {(shiftData.uangTransaksi || 0).toLocaleString()}
+      </p>
+    </div>
+    <div>
+      <p className="text-purple-600">Total Admin</p>
+      <p>Rp {(shiftData.totalAdminFee || 0).toLocaleString()}</p>
+    </div>
+  </div>
+</div>
       <TransactionForm onAddTransaction={onAddTransaction} />
       
       {/* Display current app balances if available */}

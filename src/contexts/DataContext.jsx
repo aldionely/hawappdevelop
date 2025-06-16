@@ -400,6 +400,7 @@ export const DataProvider = ({ children }) => {
     fetchAppBalanceLogsAPI,
     updateManualAppBalance,
     currentUserAppBalanceLogs,
+    fetchVouchersAPI,
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

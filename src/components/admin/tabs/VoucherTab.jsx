@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -132,27 +132,124 @@ const VoucherLogsDialog = ({ voucher, logs }) => (
 );
 
 export const VoucherTab = () => {
-    const { vouchers, addVoucher, updateVoucher, deleteVoucher, updateVoucherStock, fetchVoucherLogsAPI } = useData();
+    const { addVoucher, updateVoucher, deleteVoucher, updateVoucherStock, fetchVoucherLogsAPI, fetchVouchersAPI } = useData();
     const { toast } = useToast();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingVoucher, setEditingVoucher] = useState(null);
-    const [activeLocation, setActiveLocation] = useState('PIPITAN');
+    // Default: tidak memilih lokasi/kategori apapun
+    const [filterLocation, setFilterLocation] = useState("");
+    const [filterCategory, setFilterCategory] = useState("");
+    const [search, setSearch] = useState("");
     const [selectedVoucherForLogs, setSelectedVoucherForLogs] = useState(null);
     const [voucherLogs, setVoucherLogs] = useState([]);
-    
+    const [voucherPages, setVoucherPages] = useState({});
+    const [loading, setLoading] = useState({});
+    const pageSize = 20;
+    const scrollRefs = useRef({});
+
     const locations = ['PIPITAN', 'SADIK'];
 
+    // Fetch vouchers with pagination per lokasi, gunakan cache (jangan hapus data lokasi lain)
+    const fetchVouchers = useCallback(async (location, page = 1) => {
+        setLoading(prev => ({ ...prev, [location]: true }));
+        const result = await fetchVouchersAPI({ location, page, pageSize });
+        setLoading(prev => ({ ...prev, [location]: false }));
+        if (result.success) {
+            setVoucherPages(prev => {
+                const prevData = prev[location]?.data || [];
+                let newData;
+                if (page === 1) {
+                    newData = result.data;
+                } else {
+                    const ids = new Set(prevData.map(v => v.id));
+                    newData = [...prevData, ...result.data.filter(v => !ids.has(v.id))];
+                }
+                return {
+                    ...prev,
+                    [location]: {
+                        data: newData,
+                        page,
+                        hasMore: result.data.length === pageSize
+                    }
+                };
+            });
+        }
+    }, [fetchVouchersAPI]);
+
+    // Fetch data hanya saat lokasi dipilih dan belum ada datanya (cache)
+    useEffect(() => {
+        if (filterLocation && !voucherPages[filterLocation]) {
+            fetchVouchers(filterLocation, 1);
+        }
+    }, [filterLocation, fetchVouchers, voucherPages]);
+
+    // Infinite scroll handler per lokasi
+    const handleScroll = useCallback((loc) => {
+        const container = scrollRefs.current[loc];
+        if (!container || loading[loc]) return;
+        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 100) {
+            const pageData = voucherPages[loc] || { data: [], page: 1, hasMore: true };
+            if (pageData.hasMore) {
+                fetchVouchers(loc, pageData.page + 1);
+            }
+        }
+    }, [voucherPages, loading, fetchVouchers]);
+
+    // Attach scroll event per lokasi
+    useEffect(() => {
+        if (!filterLocation) return;
+        const container = scrollRefs.current[filterLocation];
+        if (!container) return;
+        const onScroll = () => handleScroll(filterLocation);
+        container.addEventListener('scroll', onScroll);
+        return () => container.removeEventListener('scroll', onScroll);
+    }, [filterLocation, handleScroll]);
+
+    // Ambil daftar kategori unik dari voucher yang sudah dimuat pada lokasi aktif
+    const categories = useMemo(() => {
+        if (!filterLocation) return [];
+        const vouchersList = voucherPages[filterLocation]?.data || [];
+        const setCat = new Set();
+        vouchersList.forEach(v => {
+            // Pastikan hanya kategori dari lokasi yang sedang dipilih
+            if (v.location === filterLocation) {
+                setCat.add(v.category || 'Lainnya');
+            }
+        });
+        return Array.from(setCat).sort();
+    }, [voucherPages, filterLocation]);
+
+    // Filter voucher: hanya tampil jika lokasi & kategori dipilih
     const groupedVouchersByLocation = useMemo(() => {
-        return (vouchers || [])
-            .filter(v => v.location === activeLocation)
-            .reduce((acc, voucher) => {
-                const category = voucher.category || 'Lainnya';
-                if (!acc[category]) acc[category] = [];
-                acc[category].push(voucher);
-                return acc;
-            }, {});
-    }, [vouchers, activeLocation]);
-    
+        if (!filterLocation || !filterCategory) return {};
+        const vouchersList = voucherPages[filterLocation]?.data || [];
+        let filtered = vouchersList;
+        // Pastikan hanya voucher dari lokasi yang dipilih
+        filtered = filtered.filter(v => v.location === filterLocation);
+        filtered = filtered.filter(v => (v.category || 'Lainnya') === filterCategory);
+        if (search) {
+            filtered = filtered.filter(v =>
+                v.name.toLowerCase().includes(search.toLowerCase()) ||
+                v.category?.toLowerCase().includes(search.toLowerCase())
+            );
+        }
+        return filtered.reduce((acc, voucher) => {
+            const category = voucher.category || 'Lainnya';
+            if (!acc[category]) acc[category] = [];
+            acc[category].push(voucher);
+            return acc;
+        }, {});
+    }, [voucherPages, filterLocation, filterCategory, search]);
+
+    // Reset paginasi dan fetch ulang setelah tambah/edit/hapus voucher
+    const refreshVouchers = useCallback(() => {
+        setVoucherPages(prev => ({
+            ...prev,
+            [filterLocation]: undefined
+        }));
+        fetchVouchers(filterLocation, 1);
+    }, [filterLocation, fetchVouchers]);
+
     const handleFormOpen = (voucher) => {
         setEditingVoucher(voucher);
         setIsFormOpen(true);
@@ -168,6 +265,7 @@ export const VoucherTab = () => {
         if (result.success) {
             toast({ title: "Berhasil", description: `Voucher ${editingVoucher ? 'diperbarui' : 'ditambahkan'}.` });
             handleFormClose();
+            refreshVouchers();
         } else {
             toast({ variant: "destructive", title: "Gagal", description: result.error?.message || "Terjadi kesalahan." });
         }
@@ -177,6 +275,7 @@ export const VoucherTab = () => {
         const result = await deleteVoucher(voucherId);
         if (result.success) {
             toast({ title: 'Voucher Dihapus' });
+            refreshVouchers();
         } else {
             toast({ variant: 'destructive', title: 'Gagal', description: result.error?.message || 'Gagal menghapus voucher.' });
         }
@@ -195,65 +294,106 @@ export const VoucherTab = () => {
                 <h2 className="text-lg font-semibold">Manajemen Voucher</h2>
                 <Button size="sm" onClick={() => handleFormOpen(null)}><PlusCircle size={16} className="mr-2" /> Tambah Voucher</Button>
             </div>
-            
+            {/* Filter lokasi, pencarian, dan kategori */}
+            <div className="flex flex-wrap gap-2 items-center">
+                <select
+                    value={filterLocation}
+                    onChange={e => {
+                        setFilterLocation(e.target.value);
+                        setFilterCategory(""); // reset kategori saat lokasi berubah
+                        setSearch(""); // reset search juga
+                    }}
+                    className="border rounded px-2 py-1 text-sm"
+                >
+                    <option value="">Pilih Lokasi</option>
+                    {locations.map(loc => (
+                        <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                </select>
+                <select
+                    value={filterCategory}
+                    onChange={e => {
+                        setFilterCategory(e.target.value);
+                        setSearch(""); // reset search juga
+                    }}
+                    className="border rounded px-2 py-1 text-sm"
+                    disabled={!filterLocation}
+                >
+                    <option value="">Pilih Kategori</option>
+                    {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                </select>
+                <Input
+                    placeholder="Cari nama/kategori voucher..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="max-w-xs"
+                    disabled={!filterLocation || !filterCategory}
+                />
+            </div>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                  <DialogContent onEscapeKeyDown={handleFormClose} onPointerDownOutside={handleFormClose}>
                     <DialogHeader><DialogTitle>{editingVoucher ? 'Edit Voucher' : 'Tambah Voucher Baru'}</DialogTitle></DialogHeader>
                     <VoucherForm voucher={editingVoucher} onSave={handleSaveVoucher} onCancel={handleFormClose} locations={locations} />
                 </DialogContent>
             </Dialog>
-
-
-            <Tabs value={activeLocation} onValueChange={setActiveLocation}>
-                <TabsList>
-                    {locations.map(loc => <TabsTrigger key={loc} value={loc}>{loc}</TabsTrigger>)}
-                </TabsList>
-                {locations.map(loc => (
-                    <TabsContent key={loc} value={loc} className="mt-4">
-                        <div className="space-y-4">
-                            {Object.keys(groupedVouchersByLocation).length > 0 ? Object.keys(groupedVouchersByLocation).sort().map(category => (
-                                <div key={category}>
-                                    <h3 className="font-bold text-md mb-2">{category}</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {groupedVouchersByLocation[category].map(v => (
-                                            <div key={v.id} className="p-3 border rounded-lg bg-white space-y-2">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="font-semibold">{v.name}</p>
-                                                        <p className="text-xs text-gray-500">Profit: Rp {(v.sell_price - v.cost_price).toLocaleString()}</p>
-                                                    </div>
-                                                    <div className="flex items-center space-x-1">
-                                                        <Dialog>
-                                                            <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" title="Tambah Stok"><Plus size={14} /></Button></DialogTrigger>
-                                                            <AddStockDialog voucher={v} onAddStock={(qty, desc) => updateVoucherStock(v.id, qty, 'PENAMBAHAN', desc)} />
-                                                        </Dialog>
-                                                        <Dialog>
-                                                            <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" title="Lihat Riwayat" onClick={() => handleShowLogs(v)}><Eye size={14} /></Button></DialogTrigger>
-                                                            {selectedVoucherForLogs && <VoucherLogsDialog voucher={selectedVoucherForLogs} logs={voucherLogs} />}
-                                                        </Dialog>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6" title="Edit Voucher" onClick={() => handleFormOpen(v)}><Edit size={14} /></Button>
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-600" title="Hapus Voucher"><Trash2 size={14} /></Button></AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader><AlertDialogTitle>Hapus Voucher?</AlertDialogTitle><AlertDialogDescription>Anda yakin ingin menghapus {v.name}? Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription></AlertDialogHeader>
-                                                                <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteVoucher(v.id)} className="bg-red-600 hover:bg-red-700">Hapus</AlertDialogAction></AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                    </div>
+            <div className="mt-4">
+                <div
+                    className="space-y-4 max-h-[70vh] overflow-y-auto"
+                    ref={el => { if (filterLocation) scrollRefs.current[filterLocation] = el; }}
+                >
+                    {(!filterLocation || !filterCategory) ? (
+                        <p className="text-center py-8 text-gray-500">Pilih lokasi dan kategori untuk menampilkan voucher.</p>
+                    ) : (
+                        Object.keys(groupedVouchersByLocation).length > 0 ? Object.keys(groupedVouchersByLocation).sort().map(category => (
+                            <div key={category}>
+                                <h3 className="font-bold text-md mb-2">{category}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {groupedVouchersByLocation[category].map(v => (
+                                        <div key={`${v.location}-${category}-${v.id}`} className="p-3 border rounded-lg bg-white space-y-2">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-semibold">{v.name}</p>
+                                                    <p className="text-xs text-gray-500">Profit: Rp {(v.sell_price - v.cost_price).toLocaleString()}</p>
                                                 </div>
-                                                <div className="flex justify-between items-center text-sm">
-                                                    <span>Stok Saat Ini:</span>
-                                                    <span className="font-bold text-lg">{v.current_stock}</span>
+                                                <div className="flex items-center space-x-1">
+                                                    <Dialog>
+                                                        <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" title="Tambah Stok"><Plus size={14} /></Button></DialogTrigger>
+                                                        <AddStockDialog voucher={v} onAddStock={(qty, desc) => updateVoucherStock(v.id, qty, 'PENAMBAHAN', desc)} />
+                                                    </Dialog>
+                                                    <Dialog>
+                                                        <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" title="Lihat Riwayat" onClick={() => handleShowLogs(v)}><Eye size={14} /></Button></DialogTrigger>
+                                                        {selectedVoucherForLogs && <VoucherLogsDialog voucher={selectedVoucherForLogs} logs={voucherLogs} />}
+                                                    </Dialog>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6" title="Edit Voucher" onClick={() => handleFormOpen(v)}><Edit size={14} /></Button>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-600" title="Hapus Voucher"><Trash2 size={14} /></Button></AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader><AlertDialogTitle>Hapus Voucher?</AlertDialogTitle><AlertDialogDescription>Anda yakin ingin menghapus {v.name}? Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription></AlertDialogHeader>
+                                                            <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteVoucher(v.id)} className="bg-red-600 hover:bg-red-700">Hapus</AlertDialogAction></AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span>Stok Saat Ini:</span>
+                                                <span className="font-bold text-lg">{v.current_stock}</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            )) : <p className="text-center py-8 text-gray-500">Tidak ada voucher untuk lokasi {loc}.</p>}
-                        </div>
-                    </TabsContent>
-                ))}
-            </Tabs>
+                            </div>
+                        )) : <p className="text-center py-8 text-gray-500">Tidak ada voucher untuk filter ini.</p>
+                    )}
+                    <>
+                        {filterLocation && loading[filterLocation] && <div className="text-center py-4 text-gray-400">Memuat...</div>}
+                        {filterLocation && !loading[filterLocation] && voucherPages[filterLocation]?.hasMore === false && (
+                            <div className="text-center py-2 text-gray-400 text-xs">Semua data sudah dimuat.</div>
+                        )}
+                    </>
+                </div>
+            </div>
         </div>
     );
 };

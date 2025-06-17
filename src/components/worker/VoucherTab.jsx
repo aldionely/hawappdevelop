@@ -81,10 +81,10 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
     );
 };
 
-const VoucherHistoryList = ({ transactions, voucher }) => {
+const VoucherHistoryList = ({ transactions }) => {
     const voucherSales = useMemo(() => {
         return transactions
-            .filter(tx => tx.productAdminFee !== undefined && tx.description.includes(tx.description))
+            .filter(tx => tx.id !== undefined && tx.id.includes('tx_vcr'))
             .slice()
             .reverse();
     }, [transactions]);

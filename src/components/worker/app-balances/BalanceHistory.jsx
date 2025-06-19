@@ -109,7 +109,7 @@ export const BalanceHistory = ({ transactions, products }) => {
             </div>
             {log.source === 'manual' && log.previous_balance !== null && log.new_balance !== null && (
               <div className="text-right text-gray-500 mt-1 pt-1 border-t text-xs">
-                Saldo: Rp {log.previous_balance.toLocaleString()} &rarr; Rp {log.new_balance.toLocaleString()}
+                Saldo : Rp {log.previous_balance.toLocaleString()} &rarr; Rp {log.new_balance.toLocaleString()}
               </div>
             )}
           </div>

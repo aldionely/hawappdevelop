@@ -106,7 +106,7 @@ const WorkerDashboard = () => {
             <TabsList className="grid w-full grid-cols-3 mb-4 text-xs sm:text-sm">
                 <TabsTrigger value="shift">Shift</TabsTrigger>
                 <TabsTrigger value="vouchers">Voucher</TabsTrigger>
-                <TabsTrigger value="appBalances">Saldo App</TabsTrigger>
+                <TabsTrigger value="appBalances">Saldo Aplikasi</TabsTrigger>
             </TabsList>
             <TabsContent value="shift">
                 {activeShiftData && <ShiftInProgressManager initialShiftData={activeShiftData} onShiftEnded={handleShiftEnded} />}

@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Download } from 'lucide-react';
 import { downloadShiftReport } from '@/lib/downloadHelper';
-import { appBalanceKeysAndNames } from '@/components/worker/StartShiftForm';
+import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
 
 const AppBalancesReportDisplay = ({ balances }) => {
   if (!balances || Object.keys(balances).length === 0) {

@@ -27,17 +27,25 @@ export const deleteVoucherAPI = async (voucherId) => {
 
 export const updateVoucherStockAPI = async (params) => {
     const { voucherId, quantityChanged, transactionType, description, userId, username, shiftId } = params;
-    const { data, error } = await supabase.rpc('update_voucher_stock_and_log', {
+    
+    // Perubahan di sini: Pastikan p_shift_id selalu ada di payload
+    const payload = {
         p_voucher_id: voucherId,
         p_quantity_changed: quantityChanged,
         p_transaction_type: transactionType,
         p_description: description,
         p_user_id: userId,
         p_username: username,
-        p_shift_id: shiftId
-    });
+        p_shift_id: shiftId || null // Kirim null jika shiftId undefined
+    };
 
-    if (error) return { success: false, error: handleSupabaseError(error, "updating voucher stock RPC") };
+    const { data, error } = await supabase.rpc('update_voucher_stock_and_log', payload);
+
+    if (error) {
+        // Log error lengkap untuk debugging jika terjadi lagi
+        console.error("Full RPC Error:", JSON.stringify(error, null, 2));
+        return { success: false, error: handleSupabaseError(error, "updating voucher stock RPC") };
+    }
     return { success: true, data };
 };
 

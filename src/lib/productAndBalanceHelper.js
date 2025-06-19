@@ -1,4 +1,4 @@
-import { appBalanceKeysAndNames } from "@/components/worker/StartShiftForm";
+import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
 
 export const calculateProductAdminFee = (description, products) => {
   if (!description || !products || products.length === 0) {

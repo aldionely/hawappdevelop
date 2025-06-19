@@ -1,4 +1,7 @@
-import { initialAppBalances } from "@/components/worker/StartShiftForm";
+// FILE: src/lib/dataTransformation.js (SUDAH DIPERBAIKI)
+
+// UBAH IMPOR INI
+import { initialAppBalances } from '@/lib/shiftConstants';
 
 export const parseSafeNumber = (value) => {
   if (typeof value === 'number') {

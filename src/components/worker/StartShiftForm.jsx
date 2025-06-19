@@ -1,3 +1,5 @@
+// FILE: src/components/worker/StartShiftForm.jsx (SUDAH DIPERBAIKI)
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,47 +7,34 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/components/ui/use-toast";
 import { formatNumberInput, parseFormattedNumber } from "@/lib/utils";
-
-export const appBalanceKeysAndNames = [
-  { key: "PERMATA", name: "PERMATA" },
-  { key: "BCA", name: "BCA" },
-  { key: "BRI", name: "BRI" },
-  { key: "MANDIRI", name: "MANDIRI" },
-  { key: "SEABANK", name: "SEABANK" },
-  { key: "DANA", name: "DANA" },
-  { key: "GOPAY", name: "GOPAY" },
-  { key: "OVO", name: "OVO" },
-  { key: "LINKAJA", name: "LINK AJA" },
-  { key: "ISIMPEL", name: "ISIMPEL" },
-  { key: "SIDOMPUL", name: "SIDOMPUL" },
-  { key: "DIGIPOS", name: "DIGIPOS" },
-  { key: "RITA", name: "RITA" },
-  { key: "BERKAT", name: "BERKAT" },
-];
-
-export const initialAppBalances = appBalanceKeysAndNames.reduce((acc, { key }) => {
-  acc[key] = 0;
-  return acc;
-}, {});
+// Impor dari file konstanta baru
+import { appBalanceKeysAndNames } from '@/lib/shiftConstants'; 
 
 export const StartShiftForm = ({ onShiftStarted }) => {
   const { user } = useAuth();
-  const { updateActiveShift, vouchers } = useData();
+  // hapus addActiveShift dan fetchActiveShifts dari sini jika tidak dipakai
+  const { updateActiveShift, vouchers } = useData(); 
   const [kasAwal, setKasAwal] = useState("");
   const [displayKasAwal, setDisplayKasAwal] = useState("");
   const [lokasi, setLokasi] = useState("PIPITAN");
-  const [appBalances, setAppBalances] = useState(initialAppBalances);
-  const [displayAppBalances, setDisplayAppBalances] = useState(initialAppBalances);
+  
+  const [appBalances, setAppBalances] = useState(() => 
+    appBalanceKeysAndNames.reduce((acc, { key }) => ({ ...acc, [key]: "" }), {})
+  );
+  const [displayAppBalances, setDisplayAppBalances] = useState(() =>
+    appBalanceKeysAndNames.reduce((acc, { key }) => ({ ...acc, [key]: "" }), {})
+  );
+  
   const { toast } = useToast();
 
-  const handleKasAwalChange = (e) => {
+  const handleKasAwalChange = (e) => { /* ... (logika dari file Anda) ... */ 
     const value = e.target.value;
     const numericValue = parseFormattedNumber(value);
     setKasAwal(numericValue);
     setDisplayKasAwal(formatNumberInput(value));
   };
   
-  const handleAppBalanceChange = (key, value) => {
+  const handleAppBalanceChange = (key, value) => { /* ... (logika dari file Anda) ... */
     const numericValue = parseFormattedNumber(value);
     setAppBalances(prev => ({ ...prev, [key]: numericValue }));
     setDisplayAppBalances(prev => ({ ...prev, [key]: formatNumberInput(value) }));
@@ -98,49 +87,51 @@ export const StartShiftForm = ({ onShiftStarted }) => {
        toast({
         variant: "destructive",
         title: "Gagal memulai shift",
-        description: result.error || "Terjadi kesalahan. Coba lagi.",
+        description: result.error?.message || "Terjadi kesalahan. Coba lagi.",
       });
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-lg font-semibold">Mulai Shift Baru</h2>
-      <Input
-        type="text"
-        inputMode="decimal"
-        placeholder="Kas Awal (Rp)"
-        value={displayKasAwal}
-        onChange={handleKasAwalChange}
-        required
-      />
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
-        <select
-          value={lokasi}
-          onChange={(e) => setLokasi(e.target.value)}
-          className="w-full p-2 border rounded-md"
-        >
-          <option value="PIPITAN">PIPITAN</option>
-          <option value="SADIK">SADIK</option>
-        </select>
-      </div>
-       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Saldo Awal Aplikasi (Opsional)</label>
-        <div className="grid grid-cols-2 gap-2">
-            {appBalanceKeysAndNames.map(({ key, name }) => (
-                <Input
-                    key={key}
-                    type="text"
-                    inputMode="decimal"
-                    placeholder={name}
-                    value={displayAppBalances[key] || ''}
-                    onChange={(e) => handleAppBalanceChange(key, e.target.value)}
-                />
-            ))}
+        <h2 className="text-lg font-semibold">Mulai Shift Baru</h2>
+        <Input
+            type="text"
+            inputMode="decimal"
+            placeholder="Kas Awal (Rp)"
+            value={displayKasAwal}
+            onChange={handleKasAwalChange}
+            required
+        />
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
+            <select
+                value={lokasi}
+                onChange={(e) => setLokasi(e.target.value)}
+                className="w-full p-2 border rounded-md"
+            >
+                <option value="PIPITAN">PIPITAN</option>
+                <option value="SADIK">SADIK</option>
+            </select>
         </div>
-      </div>
-      <Button type="submit" className="w-full">Mulai Shift</Button>
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Saldo Awal Aplikasi (Opsional)</label>
+            <div className="grid grid-cols-2 gap-2">
+                {appBalanceKeysAndNames.map(({ key, name }) => (
+                    <Input
+                        key={key}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder={name}
+                        value={displayAppBalances[key] || ''}
+                        onChange={(e) => handleAppBalanceChange(key, e.target.value)}
+                    />
+                ))}
+            </div>
+        </div>
+        <Button type="submit" className="w-full">Mulai Shift</Button>
     </form>
   );
 };
+
+// Pastikan tidak ada `export const appBalanceKeysAndNames` dan `export const initialAppBalances` di sini lagi.

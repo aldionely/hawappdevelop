@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useContext } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,9 @@ import { formatNumberInput, parseFormattedNumber } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { downloadVoucherStockReport } from '@/lib/downloadHelper';
 
+// Komponen-komponen pembantu tidak perlu diubah.
+
+// Komponen AddStockDialog
 const AddStockDialog = ({ voucher, onConfirm }) => {
     const [quantity, setQuantity] = useState('');
     const [displayQuantity, setDisplayQuantity] = useState('');
@@ -26,6 +29,9 @@ const AddStockDialog = ({ voucher, onConfirm }) => {
             return;
         }
         onConfirm(numQuantity, description);
+        setQuantity('');
+        setDisplayQuantity('');
+        setDescription('');
     };
 
     return (
@@ -46,6 +52,7 @@ const AddStockDialog = ({ voucher, onConfirm }) => {
     );
 };
 
+// Komponen VoucherItem
 const VoucherItem = ({ voucher, onSell, onAddStock }) => {
     const { toast } = useToast();
 
@@ -81,10 +88,12 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
     );
 };
 
+
+// Komponen VoucherHistoryList
 const VoucherHistoryList = ({ transactions }) => {
     const voucherSales = useMemo(() => {
         return transactions
-            .filter(tx => tx.id !== undefined && tx.id.includes('tx_vcr'))
+            .filter(tx => tx.id && tx.id.includes('tx_vcr'))
             .slice()
             .reverse();
     }, [transactions]);
@@ -115,64 +124,120 @@ const VoucherHistoryList = ({ transactions }) => {
     );
 };
 
+
+// --- FUNGSI PENGURUTAN DENGAN LOGIKA BARU ---
+const sortVoucherItems = (a, b) => {
+    const regex = /(\d+)\s*GB\s*(\d+)\s*D/i;
+
+    const matchA = a.name.match(regex);
+    const matchB = b.name.match(regex);
+
+    // Jika A punya format tapi B tidak, maka A ditaruh di atas.
+    if (matchA && !matchB) return -1;
+    // Jika B punya format tapi A tidak, maka B ditaruh di atas.
+    if (!matchA && matchB) return 1;
+
+    // Jika keduanya punya format, lakukan pengurutan bertingkat.
+    if (matchA && matchB) {
+        const gbA = parseInt(matchA[1], 10);
+        const daysA = parseInt(matchA[2], 10);
+        const gbB = parseInt(matchB[1], 10);
+        const daysB = parseInt(matchB[2], 10);
+
+        // 1. Urutkan berdasarkan GB (menaik: kecil ke besar)
+        if (gbA !== gbB) {
+            return gbA - gbB;
+        }
+        // 2. Jika GB sama, urutkan berdasarkan hari (menaik: sebentar ke lama)
+        return daysA - daysB;
+    }
+
+    // Fallback: Jika keduanya tidak punya format, urutkan berdasarkan nama.
+    return a.name.localeCompare(b.name);
+};
+
+
+// Komponen Utama VoucherTab
 export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
     const { vouchers, updateVoucherStock, sellVoucherAndUpdateShift } = useData();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Urutan Kategori
+    const categoryOrder = [
+        "VCR SMARTFREN HARIAN",
+        "VCR SMARTFREN UNLIMITED", // <- Perbaikan dari "UNL" menjadi "UNLIMITED"
+        "VCR INDOSAT UNLIMITED",
+        "VCR INDOSAT BULANAN",
+        "VCR INDOSAT HARIAN",
+        "VCR TRI BULANAN",
+        "VCR TRI HARIAN",
+        "VCR TELKOMSEL HARIAN",
+        "VCR TELKOMSEL BULANAN",
+        "VCR XL BULANAN",
+        "VCR XL HARIAN",
+        "VCR AXIS BULANAN",
+        "VCR AXIS HARIAN",
+        "KARTU SMARTFREN",
+        "KARTU AXIS",
+        "KARTU BYU",
+        "KARTU ISAT",
+        "KARTU TRI",
+        "KARTU XL",
+    ];
 
     const locationVouchers = useMemo(() => {
-        return (vouchers || [])
-            .filter(v => v.location === shiftLocation)
-            .sort((a, b) => a.name.localeCompare(b.name));
+        if (!vouchers || !shiftLocation) return [];
+        return vouchers.filter(v => v.location === shiftLocation && !v.is_archived);
     }, [vouchers, shiftLocation]);
 
     const filteredVouchers = useMemo(() => {
         if (!searchTerm) return locationVouchers;
-        const lowercasedTerm = searchTerm.toLowerCase();
-        return locationVouchers.filter(v => 
-            v.name.toLowerCase().includes(lowercasedTerm) || 
-            v.category.toLowerCase().includes(lowercasedTerm)
+        return locationVouchers.filter(v =>
+            v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (v.category && v.category.toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }, [locationVouchers, searchTerm]);
 
     const groupedVouchers = useMemo(() => {
         return filteredVouchers.reduce((acc, voucher) => {
             const category = voucher.category || 'Lainnya';
-            if (!acc[category]) acc[category] = [];
+            if (!acc[category]) {
+                acc[category] = [];
+            }
             acc[category].push(voucher);
             return acc;
         }, {});
     }, [filteredVouchers]);
 
+    const sortedGroupedVoucherKeys = useMemo(() => {
+        const keys = Object.keys(groupedVouchers);
+        return keys.sort((a, b) => {
+            const indexA = categoryOrder.indexOf(a.toUpperCase());
+            const indexB = categoryOrder.indexOf(b.toUpperCase());
+
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+    }, [groupedVouchers, categoryOrder]);
+
     const handleSellVoucher = async (voucher) => {
         const result = await sellVoucherAndUpdateShift(voucher);
         if(result.success) {
-            toast({
-                title: 'Voucher Terjual!',
-                description: `${voucher.name} telah terjual seharga Rp ${voucher.sell_price.toLocaleString()}.`,
-            });
+            toast({ title: 'Voucher Terjual!', description: `${voucher.name} telah terjual.` });
         } else {
-             toast({
-                variant: 'destructive',
-                title: 'Gagal Menjual Voucher',
-                description: result.error || 'Terjadi kesalahan.',
-            });
+             toast({ variant: 'destructive', title: 'Gagal Menjual', description: result.error?.message || 'Terjadi kesalahan.' });
         }
     };
     
     const handleAddStock = async (voucherId, quantity, description) => {
         const result = await updateVoucherStock(voucherId, quantity, 'PENAMBAHAN', description);
         if (result.success) {
-            toast({
-                title: 'Stok Ditambahkan',
-                description: description,
-            });
+            toast({ title: 'Stok Ditambahkan', description: description });
         } else {
-            toast({
-                variant: 'destructive',
-                title: 'Gagal',
-                description: result.error?.message || 'Gagal memperbarui stok.',
-            });
+            toast({ variant: 'destructive', title: 'Gagal', description: result.error?.message || 'Gagal memperbarui stok.' });
         }
     };
     
@@ -205,12 +270,14 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
                         </Button>
                     </div>
                     <div className="space-y-4 mt-2">
-                        {Object.keys(groupedVouchers).length > 0 ? (
-                            Object.keys(groupedVouchers).sort().map(category => (
+                        {sortedGroupedVoucherKeys.length > 0 ? (
+                            sortedGroupedVoucherKeys.map(category => (
                                 <div key={category}>
                                     <h3 className="font-bold text-md mb-2 sticky top-0 bg-gradient-to-b from-purple-100 to-transparent py-1">{category}</h3>
                                     <div className="space-y-2">
-                                        {groupedVouchers[category].map(voucher => (
+                                        {groupedVouchers[category]
+                                            .sort(sortVoucherItems) // Menggunakan fungsi pengurutan baru
+                                            .map(voucher => (
                                             <VoucherItem 
                                                 key={voucher.id} 
                                                 voucher={voucher} 

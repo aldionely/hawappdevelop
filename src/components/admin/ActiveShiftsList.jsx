@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TransactionHistoryDialog } from '@/components/shared/TransactionHistoryDialog';
-import { appBalanceKeysAndNames } from '@/components/worker/StartShiftForm';
+import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
 
 const AppBalancesDisplay = ({ balances }) => {
   if (!balances || Object.keys(balances).length === 0) {

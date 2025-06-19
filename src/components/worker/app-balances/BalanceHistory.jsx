@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { appBalanceKeysAndNames } from '@/components/worker/StartShiftForm';
+import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
 import { calculateProductAdminFee } from '@/lib/productAndBalanceHelper';
 
 const convertTxToBalanceLog = (tx, products) => {

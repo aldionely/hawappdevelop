@@ -1,5 +1,5 @@
 import { html_beautify } from 'js-beautify';
-import { appBalanceKeysAndNames } from '@/components/worker/StartShiftForm';
+import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
 
 const formatCurrency = (amount) => `Rp ${(amount || 0).toLocaleString()}`;
 const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short', hour12: false }) : '-';

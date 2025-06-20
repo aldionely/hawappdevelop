@@ -21,47 +21,52 @@ export const ShiftInProgress = ({ shiftData, onAddTransaction, onEditTransaction
       animate={{ opacity: 1 }}
       className="space-y-4"
     >
-      <div className="p-3 border rounded-lg bg-white">
-  <h2 className="text-md sm:text-lg font-semibold mb-2">Shift Sedang Berjalan</h2>
-
-  {/* Baris waktu dan lokasi tetap */}
-  <div className="grid grid-cols-2 gap-2 text-xs mb-3 ml-12">
-    <p>Mulai: {formatTime(shiftData.startTime)}</p>
-    <p>Lokasi: {shiftData.lokasi}</p>
+      {/*--- GANTI KODE LAMA ANDA DENGAN KODE DI BAWAH INI ---*/}
+<div className="p-4 bg-white border rounded-lg shadow-sm">
+  {/* Bagian Header */}
+  <div className="pb-4 border-b">
+    <h2 className="text-lg font-semibold leading-none tracking-tight">Shift Sedang Berjalan</h2>
+    <p className="text-sm text-muted-foreground mt-1">
+      Lokasi: {shiftData.lokasi} - Mulai Pukul: {new Date(shiftData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+    </p>
   </div>
 
-  {/* Nominal dengan label di atasnya */}
-  <div className="grid grid-cols-2 gap-2 text-xs mb-3 ml-12">
-    <div>
-      <p className="text-gray-600">Kas Awal</p>
-      <p>Rp {(shiftData.kasAwal || 0).toLocaleString()}</p>
+  {/* Bagian Konten / Statistik */}
+  <div className="grid grid-cols-2 gap-3 pt-4">
+    {/* Kotak Statistik: Kas Awal */}
+    <div className="p-3 bg-gray-50 rounded-lg">
+      <p className="text-xs text-gray-600 mb-1">Kas Awal</p>
+      <p className="font-bold text-base">Rp {(shiftData.kasAwal || 0).toLocaleString()}</p>
     </div>
-    <div>
-      <p className="text-gray-600">Uang Seharusnya</p>
-      <p>Rp {expectedBalance.toLocaleString()}</p>
-    </div>
-  </div>
 
-  <div className="grid grid-cols-2 gap-2 text-xs mb-3 ml-12">
-    <div>
-      <p className="text-green-600">Uang Masuk</p>
-      <p>Rp {(shiftData.totalIn || 0).toLocaleString()}</p>
+    {/* Kotak Statistik: Uang Seharusnya */}
+    <div className="p-3 bg-gray-50 rounded-lg">
+      <p className="text-xs text-gray-600 mb-1">Uang Seharusnya</p>
+      <p className="font-bold text-base text-blue-600">Rp {expectedBalance.toLocaleString()}</p>
     </div>
-    <div>
-      <p className="text-red-600">Uang Keluar</p>
-      <p>Rp {(shiftData.totalOut || 0).toLocaleString()}</p>
+
+    {/* Kotak Statistik: Uang Masuk */}
+    <div className="p-3 bg-gray-50 rounded-lg">
+      <p className="text-xs text-gray-600 mb-1">Uang Masuk</p>
+      <p className="font-bold text-base text-green-600">Rp {(shiftData.totalIn || 0).toLocaleString()}</p>
     </div>
-    <div>
-      <p className={`font-semibold ${(shiftData.uangTransaksi || 0) >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
-        Uang Transaksi
-      </p>
-      <p>
-        Rp {(shiftData.uangTransaksi || 0).toLocaleString()}
-      </p>
+
+    {/* Kotak Statistik: Uang Keluar */}
+    <div className="p-3 bg-gray-50 rounded-lg">
+      <p className="text-xs text-gray-600 mb-1">Uang Keluar</p>
+      <p className="font-bold text-base text-red-600">Rp {(shiftData.totalOut || 0).toLocaleString()}</p>
     </div>
-    <div>
-      <p className="text-purple-600">Total Admin</p>
-      <p>Rp {(shiftData.totalAdminFee || 0).toLocaleString()}</p>
+
+    {/* Kotak Statistik: Uang Transaksi */}
+    <div className="p-3 bg-gray-50 rounded-lg">
+        <p className="text-xs text-gray-600 mb-1">Uang Transaksi</p>
+        <p className="font-bold text-base">Rp {((shiftData.totalIn || 0) - (shiftData.totalOut || 0)).toLocaleString()}</p>
+    </div>
+
+    {/* Kotak Statistik: Total Admin */}
+    <div className="p-3 bg-gray-50 rounded-lg">
+        <p className="text-xs text-gray-600 mb-1">Total Admin</p>
+        <p className="font-bold text-base text-purple-600">Rp {(shiftData.totalAdminFee || 0).toLocaleString()}</p>
     </div>
   </div>
 </div>

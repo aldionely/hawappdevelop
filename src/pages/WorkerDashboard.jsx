@@ -82,8 +82,8 @@ const WorkerDashboard = () => {
       >
         <div className="flex justify-between items-center mb-4 sm:mb-6">
           <div>
-            <h1 className="text-lg sm:text-xl font-bold">Panel Pekerja</h1>
-            <p className="text-xs text-gray-600">{user?.name}</p>
+            <h1 className="text-lg sm:text-xl font-bold">Panel Shift</h1>
+            <p className="text-base text-gray-600">{user?.name}</p>
           </div>
           <Button onClick={handleLogout} variant="outline" size="sm">Logout</Button>
         </div>

@@ -120,7 +120,8 @@ export const DataProvider = ({ children }) => {
             fetchActiveShifts,
             fetchShiftArchives,
             fetchVouchers,
-            fetchCurrentUserAppBalanceLogs
+            fetchCurrentUserAppBalanceLogs,
+            fetchProducts
         };
     }, [fetchActiveShifts, fetchShiftArchives, fetchVouchers, fetchCurrentUserAppBalanceLogs]);
 
@@ -134,7 +135,9 @@ export const DataProvider = ({ children }) => {
         const handleActiveShiftChange = () => stableFetchCallbacks.current.fetchActiveShifts();
         const handleShiftArchiveChange = () => stableFetchCallbacks.current.fetchShiftArchives();
         const handleVoucherChange = () => stableFetchCallbacks.current.fetchVouchers();
+        const handleProductChange = () => stableFetchCallbacks.current.fetchProducts();
         const handleBalanceLogChange = (payload) => {
+        
             console.log('REAL-TIME: Perubahan terdeteksi di app_balance_logs!', payload);
             // Opsi 1: Panggil fungsi fetch lengkap (seperti sebelumnya, tapi lebih stabil)
             stableFetchCallbacks.current.fetchCurrentUserAppBalanceLogs();
@@ -156,6 +159,10 @@ export const DataProvider = ({ children }) => {
             supabase.channel('public:shift_archives')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_archives' }, handleShiftArchiveChange)
                 .subscribe(status => console.log('Status langganan shift_archives:', status)),
+
+            supabase.channel('public:products')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange)
+            .subscribe(status => console.log('Status langganan products:', status)),
 
             supabase.channel('public:vouchers')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'vouchers' }, handleVoucherChange)

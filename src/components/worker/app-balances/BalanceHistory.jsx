@@ -9,7 +9,7 @@ const convertTxToBalanceLog = (tx, products) => {
     let appKey = null;
     let type = '';
     
-    const productDetails = calculateProductAdminFee(tx.description, products);
+    const productDetails = calculateProductAdminFee(tx, products);
 
     if (productDetails.relatedAppKey) {
         appKey = productDetails.relatedAppKey;

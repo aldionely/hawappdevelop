@@ -217,7 +217,7 @@ export const DataProvider = ({ children }) => {
             };
         };
 
-        const recalculateAppBalances = async (shiftId, initialBalances, transactions) => { /* ... (logika dari file Anda) ... */ 
+        const recalculateAppBalances = async (shiftId, initialBalances, transactions) => { 
             const logResult = await fetchAppBalanceLogsAPI(shiftId);
             const manualLogs = logResult.success ? logResult.data : [];
             let recalculatedBalances = ensureValidAppBalances(initialBalances);
@@ -228,7 +228,8 @@ export const DataProvider = ({ children }) => {
             }
             let balancesAfterManualUpdates = { ...recalculatedBalances };
             for (const tx of transactions) {
-                const productDetails = calculateProductAdminFee(tx.description, products);
+                // PERUBAHAN: Kirim seluruh objek 'tx'
+                const productDetails = calculateProductAdminFee(tx, products); 
                 balancesAfterManualUpdates = updateAppBalancesFromTransaction(balancesAfterManualUpdates, tx, appBalanceDefinitions, productDetails);
             }
             return balancesAfterManualUpdates;
@@ -275,29 +276,34 @@ export const DataProvider = ({ children }) => {
         };
 
         const sellProductAndUpdateShift = async (product) => {
-        if (!activeShift) return { success: false, error: "Tidak ada shift aktif." };
+            if (!activeShift) return { success: false, error: "Tidak ada shift aktif." };
 
-        const profit = product.sell_price - product.cost_price;
+            const profit = product.sell_price - product.cost_price;
 
-        const newTransaction = {
-            id: `tx_prd_${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            type: 'in',
-            amount: product.sell_price,
-            description: product.name,
-            adminFee: 0, // Admin fee dari aturan nominal tidak berlaku untuk produk
-            productAdminFee: profit >= 0 ? profit : 0, // Profit produk masuk ke admin fee khusus produk
-            relatedAppKey: product.related_app_key, 
-            productCostPrice: product.cost_price 
+            const newTransaction = {
+                id: `tx_prd_${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                type: 'in',
+                amount: product.sell_price,
+                description: product.name, // Deskripsi tetap nama lengkap produk
+                
+                // --- PENAMBAHAN PENTING ---
+                keyword: product.keyword, // Tambahkan kata kunci ke data transaksi
+                // -------------------------
+
+                adminFee: 0,
+                productAdminFee: profit >= 0 ? profit : 0,
+                relatedAppKey: product.related_app_key, 
+                productCostPrice: product.cost_price 
+            };
+            
+            const updatedTransactions = [...activeShift.transactions, newTransaction];
+            const newTotals = processTransactionTotals(updatedTransactions);
+            const newAppBalances = await recalculateAppBalances(activeShift.id, activeShift.initial_app_balances, updatedTransactions);
+            const updatedShiftDetails = { ...activeShift, ...newTotals, transactions: updatedTransactions, app_balances: newAppBalances };
+
+            return await updateActiveShift(updatedShiftDetails);
         };
-
-        const updatedTransactions = [...activeShift.transactions, newTransaction];
-        const newTotals = processTransactionTotals(updatedTransactions);
-        const newAppBalances = await recalculateAppBalances(activeShift.id, activeShift.initial_app_balances, updatedTransactions);
-        const updatedShiftDetails = { ...activeShift, ...newTotals, transactions: updatedTransactions, app_balances: newAppBalances };
-
-        return await updateActiveShift(updatedShiftDetails);
-    };
         
         // Objek yang diekspor ke seluruh aplikasi
         return {

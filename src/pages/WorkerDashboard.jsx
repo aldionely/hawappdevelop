@@ -107,7 +107,7 @@ const WorkerDashboard = () => {
             <TabsList className="grid w-full grid-cols-4 mb-4 text-xs sm:text-sm">
                 <TabsTrigger value="shift">Shift</TabsTrigger>
                 <TabsTrigger value="vouchers">Voucher</TabsTrigger>
-                <TabsTrigger value="products">Produk</TabsTrigger>
+                <TabsTrigger value="products">PPOB</TabsTrigger>
                 <TabsTrigger value="appBalances">Saldo Aplikasi</TabsTrigger>
             </TabsList>
             <TabsContent value="shift">

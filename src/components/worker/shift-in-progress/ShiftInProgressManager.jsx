@@ -59,7 +59,8 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
       transaction.type,
       transaction.saldoMasukAplikasi 
     );
-    const productFeeDetails = calculateProductAdminFee(transaction.description, products);
+    // PERBAIKAN DI SINI: Kirim seluruh objek 'transaction'
+    const productFeeDetails = calculateProductAdminFee(transaction, products);
     const transactionWithFees = { 
       ...transaction, 
       adminFee: nominalAdminFee || 0, 
@@ -86,7 +87,8 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
       editedTransaction.type,
       editedTransaction.saldoMasukAplikasi
     );
-    const productFeeDetails = calculateProductAdminFee(editedTransaction.description, products);
+    // PERBAIKAN DI SINI: Kirim seluruh objek 'editedTransaction'
+    const productFeeDetails = calculateProductAdminFee(editedTransaction, products);
     const transactionWithFees = { 
         ...editedTransaction, 
         adminFee: nominalAdminFee || 0,

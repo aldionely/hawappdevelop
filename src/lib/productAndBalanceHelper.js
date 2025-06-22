@@ -1,12 +1,24 @@
 import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
 
-export const calculateProductAdminFee = (description, products) => {
-  if (!description || !products || products.length === 0) {
+// PERUBAHAN: Fungsi sekarang menerima objek transaksi (tx) bukan hanya deskripsi
+export const calculateProductAdminFee = (tx, products) => {
+  // Gunakan tx.keyword jika ada, jika tidak (untuk data lama), gunakan tx.description
+  const identifier = tx.keyword || tx.description;
+
+  if (!identifier || !products || products.length === 0) {
     return { fee: 0, relatedAppKey: null, productName: null, costPrice: 0 };
   }
-  const descriptionUpper = description.toUpperCase();
+  
+  const identifierUpper = identifier.toUpperCase();
+
   for (const product of products) {
-    if (descriptionUpper.includes(product.keyword.toUpperCase())) {
+    const productKeywordUpper = product.keyword.toUpperCase();
+    const productNameUpper = product.name.toUpperCase();
+    
+    // Logika Pencocokan Baru:
+    // 1. Prioritaskan pencocokan dengan KEYWORD
+    // 2. Jika gagal, coba cocokkan dengan NAMA PRODUK (untuk kompatibilitas data lama)
+    if (identifierUpper === productKeywordUpper || identifierUpper === productNameUpper) {
       return {
         fee: product.sell_price - product.cost_price, 
         relatedAppKey: product.related_app_key,
@@ -20,9 +32,9 @@ export const calculateProductAdminFee = (description, products) => {
 
 export const updateAppBalancesFromTransaction = (currentBalances, transaction, appBalanceDefinitions, productDetails = null) => {
   let newBalances = { ...currentBalances };
-
   const descUpper = transaction.description.toUpperCase();
   
+  // Logika untuk topup/tarik tunai (tidak berubah)
   if (transaction.type === 'in' && transaction.saldoKeluarAplikasi && transaction.saldoKeluarAplikasi > 0) {
     for (const { key, name } of appBalanceDefinitions) {
       const appNameUpper = name.toUpperCase();
@@ -41,6 +53,7 @@ export const updateAppBalancesFromTransaction = (currentBalances, transaction, a
     }
   }
   
+  // Logika untuk produk (tidak berubah, karena `productDetails` sudah dihitung dengan benar)
   if (productDetails && productDetails.relatedAppKey) {
     const specialAppKeysForCostPriceDeduction = ['BERKAT', 'RITA', 'ISIMPEL', 'SIDOMPUL', 'DIGIPOS'];
     

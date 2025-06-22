@@ -273,6 +273,31 @@ export const DataProvider = ({ children }) => {
             const updatedShiftDetails = { ...activeShift, ...newTotals, transactions: updatedTransactions, app_balances: newAppBalances };
             return await updateActiveShift(updatedShiftDetails);
         };
+
+        const sellProductAndUpdateShift = async (product) => {
+        if (!activeShift) return { success: false, error: "Tidak ada shift aktif." };
+
+        const profit = product.sell_price - product.cost_price;
+
+        const newTransaction = {
+            id: `tx_prd_${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            type: 'in',
+            amount: product.sell_price,
+            description: product.name,
+            adminFee: 0, // Admin fee dari aturan nominal tidak berlaku untuk produk
+            productAdminFee: profit >= 0 ? profit : 0, // Profit produk masuk ke admin fee khusus produk
+            relatedAppKey: product.related_app_key, 
+            productCostPrice: product.cost_price 
+        };
+
+        const updatedTransactions = [...activeShift.transactions, newTransaction];
+        const newTotals = processTransactionTotals(updatedTransactions);
+        const newAppBalances = await recalculateAppBalances(activeShift.id, activeShift.initial_app_balances, updatedTransactions);
+        const updatedShiftDetails = { ...activeShift, ...newTotals, transactions: updatedTransactions, app_balances: newAppBalances };
+
+        return await updateActiveShift(updatedShiftDetails);
+    };
         
         // Objek yang diekspor ke seluruh aplikasi
         return {
@@ -286,6 +311,7 @@ export const DataProvider = ({ children }) => {
             recalculateAppBalances,
             updateActiveShift,
             sellVoucherAndUpdateShift,
+            sellProductAndUpdateShift,
             updateVoucherStock,
             fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchCurrentUserAppBalanceLogs, fetchVoucherLogsAPI,
 

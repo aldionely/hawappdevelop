@@ -1,16 +1,25 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, ListChecks } from 'lucide-react'; // Import ikon baru
 import { Button } from '@/components/ui/button';
 import { TransactionHistoryDialog } from '@/components/shared/TransactionHistoryDialog';
+import { BalanceHistoryDialog } from '@/components/shared/BalanceHistoryDialog'; // Import dialog baru
 import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
+import { useData } from '@/contexts/DataContext'; // Import useData
 
-const AppBalancesDisplay = ({ balances }) => {
+const AppBalancesDisplay = ({ balances, onShowHistory }) => {
   if (!balances || Object.keys(balances).length === 0) {
     return <p className="text-xs text-gray-500 mt-1">Saldo aplikasi tidak tersedia.</p>;
   }
   return (
     <div className="mt-2 pt-2 border-t">
-      <h5 className="text-xs font-semibold mb-1">Saldo Aplikasi:</h5>
+      <div className="flex justify-between items-center mb-1">
+          <h5 className="text-xs font-semibold">Saldo Aplikasi:</h5>
+          {/* Tombol yang Anda minta, diletakkan di sini */}
+          <Button variant="link" size="sm" className="h-auto p-0 text-xs text-blue-600" onClick={onShowHistory}>
+              <ListChecks size={12} className="mr-1"/>
+              Lihat Riwayat Saldo
+          </Button>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 text-xs">
         {appBalanceKeysAndNames.map(({ key, name }) => (
           balances[key] !== undefined && (
@@ -25,9 +34,10 @@ const AppBalancesDisplay = ({ balances }) => {
   );
 };
 
-const ActiveShiftItem = ({ shift }) => {
+const ActiveShiftItem = ({ shift, products }) => { // Terima 'products' sebagai prop
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [showBalanceHistory, setShowBalanceHistory] = useState(false); // State untuk dialog baru
   
   const kasAwal = shift.kasAwal || shift.kasawal || 0;
   const totalIn = shift.totalIn || shift.totalin || 0;
@@ -39,9 +49,8 @@ const ActiveShiftItem = ({ shift }) => {
   const recentTransactions = (shift.transactions || []).slice(-3).reverse();
 
   return (
-    <div
-      className="p-2 sm:p-3 border rounded-lg bg-white"
-    >
+    <div className="p-2 sm:p-3 border rounded-lg bg-white">
+      {/* ... (kode header item tidak berubah) ... */}
       <div 
         className="flex justify-between items-center cursor-pointer"
         onClick={() => setIsDetailsOpen(!isDetailsOpen)}
@@ -63,6 +72,7 @@ const ActiveShiftItem = ({ shift }) => {
         </div>
       </div>
       
+      {/* ... (kode statistik tidak berubah) ... */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-2 text-xs">
         <div className="p-1.5 sm:p-2 bg-blue-50 rounded-lg">
           <p>Kas Awal</p>
@@ -84,7 +94,7 @@ const ActiveShiftItem = ({ shift }) => {
 
       {isDetailsOpen && (
         <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t">
-          <AppBalancesDisplay balances={shift.app_balances} />
+          <AppBalancesDisplay balances={shift.app_balances} onShowHistory={() => setShowBalanceHistory(true)} />
           <h4 className="text-xs font-semibold mb-1.5 sm:mb-2 mt-2">3 Transaksi Terkini:</h4>
           {recentTransactions.length > 0 ? (
             <div className="space-y-1 sm:space-y-1.5">
@@ -120,23 +130,28 @@ const ActiveShiftItem = ({ shift }) => {
           )}
         </div>
       )}
+
+      {/* Render Dialog di sini */}
       <TransactionHistoryDialog 
         isOpen={showAllTransactions}
         onOpenChange={setShowAllTransactions}
         transactions={shift.transactions || []}
-        shiftDetails={{
-          workerName: shift.workerName || shift.workername, 
-          startTime: shift.startTime || shift.starttime, 
-          lokasi: shift.lokasi,
-          app_balances: shift.app_balances
-        }}
+        shiftDetails={shift}
         showDownloadButton={true}
+      />
+      <BalanceHistoryDialog
+        isOpen={showBalanceHistory}
+        onOpenChange={setShowBalanceHistory}
+        shift={shift}
+        products={products}
       />
     </div>
   );
 };
 
 export const ActiveShiftsList = ({ activeShifts }) => {
+  const { products } = useData(); // Ambil data produk
+
   if (!Array.isArray(activeShifts)) {
     return <p className="text-center text-gray-500 py-6 sm:py-8 text-xs sm:text-sm">Memuat data shift aktif...</p>;
   }
@@ -144,7 +159,7 @@ export const ActiveShiftsList = ({ activeShifts }) => {
     <div className="space-y-3 sm:space-y-4">
       {activeShifts.length > 0 ? (
         activeShifts.map((shift) => (
-          <ActiveShiftItem key={shift.id || shift.username} shift={shift} />
+          <ActiveShiftItem key={shift.id || shift.username} shift={shift} products={products} />
         ))
       ) : (
         <p className="text-center text-gray-500 py-6 sm:py-8 text-xs sm:text-sm">Tidak ada shift aktif saat ini</p>

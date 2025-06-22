@@ -319,7 +319,7 @@ export const DataProvider = ({ children }) => {
             sellVoucherAndUpdateShift,
             sellProductAndUpdateShift,
             updateVoucherStock,
-            fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchCurrentUserAppBalanceLogs, fetchVoucherLogsAPI,
+            fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchCurrentUserAppBalanceLogs, fetchVoucherLogsAPI, fetchAppBalanceLogsAPI,
 
             addWorker: async (data) => { const res = await addWorkerAPI(data); if (res.success) fetchWorkers(); return res; },
             removeWorker: async (id) => { const res = await removeWorkerAPI(id); if (res.success) fetchAllInitialData(); return res; },

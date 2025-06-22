@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Trash2, Eye, FileText, Download, Ticket } from 'lucide-react';
+// BARU: Tambahkan ListChecks
+import { ChevronDown, ChevronRight, Trash2, Eye, FileText, Download, Ticket, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -18,13 +19,18 @@ import { ShiftReportDialog } from '@/components/worker/ShiftReportDialog';
 import { downloadTransactions, downloadVoucherStockReport } from '@/lib/downloadHelper'; 
 import { useData } from '@/contexts/DataContext';
 import { AppBalancesDisplay } from '@/components/worker/AppBalancesDisplay';
+// BARU: Impor komponen dialog yang sudah kita buat
+import { BalanceHistoryDialog } from '@/components/shared/BalanceHistoryDialog'; 
 
 const ArchivedShiftItem = ({ shift }) => {
   const [showTransactions, setShowTransactions] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  // BARU: State untuk mengontrol dialog riwayat saldo
+  const [showBalanceHistory, setShowBalanceHistory] = useState(false); 
   const { toast } = useToast();
-  const { removeShiftArchive, initialAppBalances, vouchers } = useData();
+  // DIUBAH: Tambahkan 'products' ke dalam data yang diambil
+  const { removeShiftArchive, initialAppBalances, vouchers, products } = useData();
 
   const handleDelete = async () => {
     const result = await removeShiftArchive(shift.id);
@@ -74,6 +80,10 @@ const ArchivedShiftItem = ({ shift }) => {
         <div className="flex items-center space-x-1">
            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-indigo-600" onClick={() => setShowReport(true)} title="Lihat Laporan Akhir">
             <FileText size={14} />
+          </Button>
+          {/* BARU: Tombol untuk menampilkan riwayat saldo */}
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-cyan-600" onClick={() => setShowBalanceHistory(true)} title="Riwayat Saldo App">
+            <ListChecks size={14} />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-blue-600" onClick={() => setShowTransactions(true)} title="Lihat Transaksi">
             <Eye size={14} />
@@ -171,6 +181,13 @@ const ArchivedShiftItem = ({ shift }) => {
         isOpen={showReport}
         onOpenChange={setShowReport}
         showDownloadButton={true}
+      />
+      {/* BARU: Render komponen dialog riwayat saldo */}
+      <BalanceHistoryDialog
+        isOpen={showBalanceHistory}
+        onOpenChange={setShowBalanceHistory}
+        shift={shift}
+        products={products}
       />
     </div>
   );

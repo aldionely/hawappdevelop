@@ -12,6 +12,7 @@ import { ShiftReportDialog } from "@/components/worker/ShiftReportDialog";
 import { AppBalancesManager } from "@/components/worker/app-balances/AppBalancesManager";
 import { VoucherTab as WorkerVoucherTab } from "@/components/worker/VoucherTab";
 import { ProductTab } from "@/components/worker/ProductTab";
+import { AccessoryTab } from "@/components/worker/AccessoryTab";
 
 const WorkerDashboard = () => {
   const { user, logout, loading: authLoading } = useAuth();
@@ -39,7 +40,7 @@ const WorkerDashboard = () => {
   useEffect(() => {
     const newDefaultTab = isShiftStarted ? "shift" : "startShift";
     if (activeTab !== newDefaultTab) {
-      if (isShiftStarted && !["shift", "vouchers", "products", "appBalances"].includes(activeTab)) {
+      if (isShiftStarted && !["shift", "vouchers", "products", "appBalances", "accessories"].includes(activeTab)) {
         setActiveTab("shift");
       } else if (!isShiftStarted && activeTab !== "history") {
         setActiveTab("startShift");
@@ -104,11 +105,12 @@ const WorkerDashboard = () => {
           </Tabs>
         ) : (
            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-4 text-xs sm:text-sm">
+            <TabsList className="grid w-full grid-cols-5 mb-4 text-xs sm:text-sm">
                 <TabsTrigger value="shift">Shift</TabsTrigger>
                 <TabsTrigger value="vouchers">Voucher</TabsTrigger>
                 <TabsTrigger value="products">PPOB</TabsTrigger>
                 <TabsTrigger value="appBalances">Saldo Aplikasi</TabsTrigger>
+                <TabsTrigger value="accessories">Aksesoris</TabsTrigger>
             </TabsList>
             <TabsContent value="shift">
                 {activeShiftData && <ShiftInProgressManager initialShiftData={activeShiftData} onShiftEnded={handleShiftEnded} />}
@@ -121,6 +123,9 @@ const WorkerDashboard = () => {
             </TabsContent>
             <TabsContent value="products">
                 {activeShiftData && <ProductTab />}
+            </TabsContent>
+            <TabsContent value="accessories">
+                {activeShiftData && <AccessoryTab />}
             </TabsContent>
            </Tabs>
         )}

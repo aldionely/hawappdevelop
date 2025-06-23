@@ -11,10 +11,12 @@ import { ArchiveTab } from "@/components/admin/tabs/ArchiveTab";
 import { AdminFeeRulesTab } from "@/components/admin/tabs/AdminFeeRulesTab";
 import { ProductsTab } from "@/components/admin/tabs/ProductsTab";
 import { VoucherTab as AdminVoucherTab } from "@/components/admin/tabs/VoucherTab";
+import { AdminAccessoriesTab } from "@/components/admin/tabs/AccessoriesTab";
+
 
 const AdminDashboard = () => {
   const { user, logout, loading: authLoading } = useAuth();
-  const { loadingData, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers } = useData();
+  const { loadingData, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories  } = useData();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = React.useState("users");
 
@@ -34,6 +36,7 @@ const AdminDashboard = () => {
           case "feeRules": fetchAdminFeeRules(); break;
           case "products": fetchProducts(); break;
           case "vouchers": fetchVouchers(); break;
+          case "accessories": fetchAccessories(); break;
           default: break;
         }
       };
@@ -66,13 +69,14 @@ const AdminDashboard = () => {
 
         <Tabs defaultValue="users" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="overflow-x-auto pb-2">
-            <TabsList className="grid w-full grid-cols-6 mb-4 text-xs sm:text-sm min-w-[600px]">
+            <TabsList className="grid w-full grid-cols-7 mb-4 text-xs sm:text-sm min-w-[700px]">
               <TabsTrigger value="users">User</TabsTrigger>
               <TabsTrigger value="active">Aktivitas</TabsTrigger>
               <TabsTrigger value="archives">Arsip Shift</TabsTrigger>
               <TabsTrigger value="feeRules">Biaya Admin</TabsTrigger>
               <TabsTrigger value="products">Produk</TabsTrigger>
               <TabsTrigger value="vouchers">Voucher</TabsTrigger>
+              <TabsTrigger value="accessories">Aksesoris</TabsTrigger>
             </TabsList>
           </div>
 
@@ -82,6 +86,7 @@ const AdminDashboard = () => {
           <TabsContent value="feeRules"><AdminFeeRulesTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
           <TabsContent value="vouchers"><AdminVoucherTab /></TabsContent>
+          <TabsContent value="accessories"><AdminAccessoriesTab /></TabsContent>
         </Tabs>
       </motion.div>
     </div>

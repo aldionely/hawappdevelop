@@ -6,45 +6,45 @@ import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 
 export const AccessoryTab = () => {
-    const { accessories, sellAccessoryAndUpdateShift } = useData();
+    const { accessories, activeShift, sellAccessoryAndUpdateShift } = useData();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
 
-    const categories = useMemo(() => {
-        if (!accessories) return [];
-        const uniqueCategories = new Set(accessories.map(p => p.category || 'Lainnya'));
-        return Array.from(uniqueCategories).sort();
-    }, [accessories]);
+    const locationName = activeShift?.lokasi;
 
-    const filteredAccessories = useMemo(() => {
-        if (!accessories) return [];
-        let results = [...accessories];
-        if (searchTerm) {
-            results = results.filter(p =>
-                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                p.category.toLowerCase().includes(searchTerm.toLowerCase())
+    // Logika untuk memfilter aksesoris yang tersedia di lokasi pekerja
+    const availableAccessories = useMemo(() => {
+        if (!Array.isArray(accessories) || !locationName) return [];
+
+        return accessories
+            .map(acc => {
+                const locationInv = acc.inventory?.find(inv => inv.location === locationName);
+                // Hanya sertakan barang jika ada entri inventaris & stok > 0 untuk lokasi ini
+                if (locationInv && locationInv.stock > 0) {
+                    return {
+                        ...acc,
+                        location_stock: locationInv.stock,
+                    };
+                }
+                return null;
+            })
+            .filter(Boolean) // Hapus yang stoknya 0 atau tidak ada di lokasi
+            .filter(acc => // Terapkan filter pencarian
+                acc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                acc.item_code?.toLowerCase().includes(searchTerm.toLowerCase())
             );
-        }
-        return results;
-    }, [accessories, searchTerm]);
-    
-    const groupedAccessories = useMemo(() => {
-        return filteredAccessories.reduce((acc, accessory) => {
-            const category = accessory.category || 'Lainnya';
-            if (!acc[category]) {
-                acc[category] = [];
-            }
-            acc[category].push(accessory);
-            return acc;
-        }, {});
-    }, [filteredAccessories]);
+    }, [accessories, locationName, searchTerm]);
 
     const handleSell = async (accessory) => {
+        if (!sellAccessoryAndUpdateShift) {
+             toast({ variant: "destructive", title: 'Error', description: 'Fungsi penjualan belum siap.' });
+             return;
+        }
         const result = await sellAccessoryAndUpdateShift(accessory);
         if (result.success) {
-            toast({ title: 'Aksesoris Terjual!', description: `${accessory.name} telah tercatat.` });
+            toast({ title: 'Aksesoris Terjual!', description: `${accessory.name} telah tercatat sebagai transaksi.` });
         } else {
-            toast({ variant: 'destructive', title: 'Gagal Menjual', description: result.error || 'Terjadi kesalahan.' });
+            toast({ variant: "destructive", title: 'Gagal Menjual', description: result.error?.message || 'Terjadi kesalahan.' });
         }
     };
 
@@ -60,25 +60,20 @@ export const AccessoryTab = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <div className="space-y-4 mt-2">
-                {Object.keys(groupedAccessories).length === 0 ? (
-                    <p className="text-center text-gray-500 pt-10">Tidak ada aksesoris yang cocok.</p>
+            <div className="space-y-3 mt-4">
+                {/* DIUBAH: Menggunakan variabel yang benar yaitu 'availableAccessories' */}
+                {availableAccessories.length === 0 ? (
+                    <p className="text-center text-gray-500 pt-10">Tidak ada aksesoris tersedia di lokasi ini.</p>
                 ) : (
-                    Object.keys(groupedAccessories).sort().map(category => (
-                        <div key={category}>
-                            <h3 className="font-bold text-md mb-2 sticky top-0 bg-gradient-to-b from-purple-100 to-transparent py-1">{category}</h3>
-                            <div className="space-y-3">
-                                {groupedAccessories[category].map(acc => (
-                                    <div key={acc.id} className="p-3 border rounded-lg bg-white flex justify-between items-center">
-                                        <div className="text-sm">
-                                            <p className="font-semibold">{acc.name}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="font-semibold text-sm">Rp {acc.sell_price.toLocaleString()}</p>
-                                            <Button size="sm" className="mt-1 h-8 text-xs" onClick={() => handleSell(acc)}>Jual</Button>
-                                        </div>
-                                    </div>
-                                ))}
+                    availableAccessories.map(acc => (
+                        <div key={acc.id} className="p-3 border rounded-lg bg-white flex justify-between items-center">
+                            <div className="text-sm">
+                                <p className="font-semibold">{acc.name}</p>
+                                <p className="text-xs text-gray-500">Sisa Stok: {acc.location_stock}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-semibold text-sm">Rp {acc.sell_price.toLocaleString()}</p>
+                                <Button size="sm" className="mt-1 h-8 text-xs" onClick={() => handleSell(acc)}>Jual</Button>
                             </div>
                         </div>
                     ))

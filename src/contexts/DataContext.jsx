@@ -14,6 +14,7 @@ import { fetchAppBalanceLogsAPI, logAppBalanceUpdateAPI } from "@/lib/api/appBal
 import { handleSupabaseError } from "@/lib/errorHandler";
 import { transformShiftData, ensureValidAppBalances, parseSafeNumber } from "@/lib/dataTransformation";
 import { calculateProductAdminFee, updateAppBalancesFromTransaction } from "@/lib/productAndBalanceHelper";
+import { fetchStockRequestsAPI, createStockRequestAPI, updateStockRequestStatusAPI } from "@/lib/api/requestService";
 
 const DataContext = createContext(null);
 
@@ -29,6 +30,7 @@ export const DataProvider = ({ children }) => {
     const [inventoryLogs, setInventoryLogs] = useState([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentUserAppBalanceLogs, setCurrentUserAppBalanceLogs] = useState([]);
+    const [stockRequests, setStockRequests] = useState([]);
 
     const fetchAccessories = useCallback(async () => { try { const masterResult = await fetchAccessoriesAPI(); if (!masterResult.success) return; const inventoryResult = await fetchLocationInventoryAPI(); if (!inventoryResult.success) return; const combinedData = masterResult.data.map(masterItem => ({ ...masterItem, inventory: inventoryResult.data.filter(inv => inv.accessory_id === masterItem.id) })); setAccessories(combinedData); } catch (error) { console.error("Error fetching accessories:", error); } }, []);
     const fetchInventoryLogs = useCallback(async () => { try { const result = await fetchInventoryLogsAPI(); if (result.success) setInventoryLogs(result.data || []); } catch (error) { console.error("Error fetching inventory logs:", error); } }, []);
@@ -39,23 +41,30 @@ export const DataProvider = ({ children }) => {
     const fetchProducts = useCallback(async () => { try { const result = await fetchProductsAPI(); if (result.success) setProducts(result.data || []); } catch (e) { console.error(e); } }, []);
     const fetchVouchers = useCallback(async () => { try { const result = await fetchVouchersAPI(); if (result.success) setVouchers(result.data || []); } catch (e) { console.error(e); } }, []);
     const fetchCurrentUserAppBalanceLogs = useCallback(async () => { const currentShift = Array.isArray(activeShifts) ? activeShifts.find(shift => shift.username === user?.username) : null; if (!currentShift?.id) { setCurrentUserAppBalanceLogs([]); return; } try { const result = await fetchAppBalanceLogsAPI(currentShift.id); if (result.success) { setCurrentUserAppBalanceLogs((result.data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))); } } catch (e) { console.error(e); } }, [user?.username, activeShifts]);
-
+    const fetchStockRequests = useCallback(async () => {
+        try {
+            const result = await fetchStockRequestsAPI();
+            if (result.success) setStockRequests(result.data || []);
+        } catch (error) {
+            console.error("Error fetching stock requests:", error);
+        }
+    }, []);
 
     
 
     const fetchAllInitialData = useCallback(async () => {
         if (!user) { setLoadingData(false); return; }
         setLoadingData(true);
-        await Promise.all([ fetchWorkers(), fetchActiveShifts(), fetchShiftArchives(), fetchAdminFeeRules(), fetchProducts(), fetchVouchers(), fetchAccessories(), fetchInventoryLogs() ]);
+        await Promise.all([ fetchWorkers(), fetchActiveShifts(), fetchShiftArchives(), fetchAdminFeeRules(), fetchProducts(), fetchVouchers(), fetchAccessories(), fetchInventoryLogs(), fetchStockRequests()]);
         setLoadingData(false);
-    }, [user, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories, fetchInventoryLogs]);
+    }, [user, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories, fetchInventoryLogs, fetchStockRequests ]);
     
     useEffect(() => { fetchAllInitialData(); }, [fetchAllInitialData]);
 
     const stableFetchCallbacks = useRef({});
     useEffect(() => {
-        stableFetchCallbacks.current = { fetchActiveShifts, fetchShiftArchives, fetchVouchers, fetchCurrentUserAppBalanceLogs, fetchProducts, fetchAccessories, fetchInventoryLogs };
-    }, [fetchActiveShifts, fetchShiftArchives, fetchVouchers, fetchCurrentUserAppBalanceLogs, fetchProducts, fetchAccessories, fetchInventoryLogs]);
+        stableFetchCallbacks.current = { fetchActiveShifts, fetchShiftArchives, fetchVouchers, fetchCurrentUserAppBalanceLogs, fetchProducts, fetchAccessories, fetchInventoryLogs, fetchStockRequests };
+    }, [fetchActiveShifts, fetchShiftArchives, fetchVouchers, fetchCurrentUserAppBalanceLogs, fetchProducts, fetchAccessories, fetchInventoryLogs, fetchStockRequests]);
 
     useEffect(() => {
         if (!user) return;
@@ -66,6 +75,7 @@ export const DataProvider = ({ children }) => {
         const handleAccessoryChange = () => stableFetchCallbacks.current.fetchAccessories();
         const handleInventoryLogChange = () => stableFetchCallbacks.current.fetchInventoryLogs();
         const handleBalanceLogChange = (payload) => { stableFetchCallbacks.current.fetchCurrentUserAppBalanceLogs(); };
+        const handleStockRequestChange = () => stableFetchCallbacks.current.fetchStockRequests();
 
         const channels = [
             supabase.channel('public:active_shifts').on('postgres_changes', { event: '*', schema: 'public', table: 'active_shifts' }, handleActiveShiftChange).subscribe(status => console.log('Status langganan active_shifts:', status)),
@@ -75,7 +85,8 @@ export const DataProvider = ({ children }) => {
             supabase.channel('public:location_inventory').on('postgres_changes', { event: '*', schema: 'public', table: 'location_inventory' }, handleAccessoryChange).subscribe(status => console.log('Status langganan location_inventory:', status)),
             supabase.channel('public:vouchers').on('postgres_changes', { event: '*', schema: 'public', table: 'vouchers' }, handleVoucherChange).subscribe(status => console.log('Status langganan vouchers:', status)),
             supabase.channel('public:inventory_logs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inventory_logs' }, handleInventoryLogChange).subscribe(status => console.log('Status langganan inventory_logs:', status)),
-            supabase.channel('public:app_balance_logs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'app_balance_logs' }, handleBalanceLogChange).subscribe((status) => { if (status !== 'SUBSCRIBED') { console.error('Gagal subscribe ke app_balance_logs:', status); } else { console.log('Status langganan app_balance_logs:', status); } })
+            supabase.channel('public:app_balance_logs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'app_balance_logs' }, handleBalanceLogChange).subscribe((status) => { if (status !== 'SUBSCRIBED') { console.error('Gagal subscribe ke app_balance_logs:', status); } else { console.log('Status langganan app_balance_logs:', status); } }),
+            supabase.channel('public:stock_requests').on('postgres_changes', { event: '*', schema: 'public', table: 'stock_requests' }, handleStockRequestChange).subscribe(status => console.log('Status langganan stock_requests:', status)),
         ];
         return () => { supabase.removeAllChannels(); };
     }, [user]);
@@ -173,17 +184,65 @@ export const DataProvider = ({ children }) => {
         const removeAccessory = async (id) => await removeAccessoryAPI(id);
         const transferStock = async (details) => await transferStockAPI(details);
         const addStockToWarehouse = async (details) => await addStockToWarehouseAPI(details);
+        const createStockRequest = async (requestData) => {
+            return await createStockRequestAPI(requestData);
+        };
+        const approveStockRequest = async (request) => {
+            if (request.request_type === 'REQUEST_STOCK') {
+                // Logika untuk menyetujui permintaan stok (tidak berubah)
+                const transferResult = await transferStock({
+                    accessory_id: request.product_id,
+                    from_location: 'GUDANG',
+                    to_location: request.location,
+                    quantity: request.quantity,
+                    transferred_by: user?.name || 'ADMIN'
+                });
+                if (!transferResult.success) return transferResult;
+            } 
+            else if (request.request_type === 'RETURN_ITEM') {
+                // 1. Tambah stok kembali ke lokasi pekerja
+                const stockResult = await updateLocationStockAPI({
+                    p_accessory_id: request.product_id,
+                    p_location: request.location,
+                    p_quantity_change: request.quantity // Jumlah positif untuk menambah stok
+                });
 
+                if (!stockResult.success) return stockResult;
+                
+                // 2. Buat log dengan tipe "RETUR DITERIMA" dan sertakan nama shift
+                await logInventoryChangeAPI({
+                    accessory_id: request.product_id,
+                    shift_id: request.shift_id,
+                    actor: user?.name || 'ADMIN',
+                    location: request.location,
+                    activity_type: 'RETUR DITERIMA', // <-- DIUBAH
+                    quantity_change: request.quantity,
+                    notes: `Retur dari shift ${request.worker_username}. Alasan: ${request.description}`
+                });
+            }
+            
+            // Tandai permintaan sebagai 'APPROVED'
+            const result = await updateStockRequestStatusAPI(request.id, 'APPROVED', user?.name || 'ADMIN');
+            return result;
+        };
+
+        
+        const rejectStockRequest = async (requestId) => {
+            const result = await updateStockRequestStatusAPI(requestId, 'REJECTED', user?.name || 'ADMIN');
+            // PERBAIKAN #2: Memanggil fetcher secara manual
+            if(result.success) fetchStockRequests();
+            return result;
+        };
         return {
-            user, workers, activeShifts, shiftArchives, adminFeeRules, products, vouchers, accessories, inventoryLogs, loadingData, currentUserAppBalanceLogs, appBalanceKeysAndNames: appBalanceDefinitions, initialAppBalances, activeShift,
+            user, workers, activeShifts, shiftArchives, adminFeeRules, products, vouchers, accessories, inventoryLogs, loadingData, currentUserAppBalanceLogs, appBalanceKeysAndNames: appBalanceDefinitions, initialAppBalances, activeShift, stockRequests, createStockRequest, approveStockRequest, rejectStockRequest,
             
             getActiveShiftForCurrentUser, processTransactionTotals, recalculateAppBalances, updateActiveShift, sellVoucherAndUpdateShift, sellProductAndUpdateShift, updateVoucherStock, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchCurrentUserAppBalanceLogs, fetchVoucherLogsAPI, fetchAppBalanceLogsAPI,
             
-            addWorker, removeWorker, updateWorkerPassword, endShift, removeShiftArchive, addAdminFeeRule, updateAdminFeeRule, removeAdminFeeRule, addProduct, updateProduct, removeProduct, addVoucher, updateVoucher, deleteVoucher, updateManualAppBalance,
+            addWorker, removeWorker, updateWorkerPassword, endShift, removeShiftArchive, addAdminFeeRule, updateAdminFeeRule, removeAdminFeeRule, addProduct, updateProduct, removeProduct, addVoucher, updateVoucher, deleteVoucher, updateManualAppBalance, 
             
             fetchAccessories, fetchInventoryLogs, addAccessory, updateAccessory, removeAccessory, transferStock, addStockToWarehouse, sellAccessoryAndUpdateShift, sellAccessoryAndUpdateShift, 
         };
-    }, [ user, workers, activeShifts, shiftArchives, adminFeeRules, products, vouchers, accessories, inventoryLogs, loadingData, currentUserAppBalanceLogs ]);
+    }, [ user, workers, activeShifts, shiftArchives, adminFeeRules, products, vouchers, accessories, inventoryLogs, loadingData, currentUserAppBalanceLogs, accessories, inventoryLogs, stockRequests, ]);
 
     return (
         <DataContext.Provider value={value}>

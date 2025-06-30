@@ -170,16 +170,25 @@ export const DataProvider = ({ children }) => {
         const updateVoucher = async (id, data) => await updateVoucherAPI(id, data);
         const deleteVoucher = async (id) => await deleteVoucherAPI(id);
 
-        const addAccessory = async (data) => {
-            const { warehouse_stock, ...masterData } = data;
-            const result = await addAccessoryAPI(masterData);
-            if (result.success && result.data && result.data.length > 0) {
-                const newAccessoryId = result.data[0].id;
-                await addInitialInventoryAPI(newAccessoryId, 'GUDANG', warehouse_stock);
-                await logInventoryChangeAPI({ accessory_id: newAccessoryId, actor: user?.name || 'ADMIN', location: 'GUDANG', activity_type: 'PENAMBAHAN AWAL', quantity_change: warehouse_stock, notes: 'Stok awal saat barang dibuat' });
+         const addAccessory = async (data) => {
+            // Gabungkan data aksesoris dengan nama pengguna yang melakukan aksi
+            const payload = {
+                ...data,
+                actor: user?.name || 'ADMIN'
+            };
+            
+            // Cukup panggil satu fungsi RPC yang sudah menangani semuanya
+            const result = await addAccessoryAPI(payload);
+            
+            // Refresh data setelah berhasil
+            if (result.success) {
+                await fetchAccessories();
+                await fetchInventoryLogs();
             }
+            
             return result;
         };
+        
         const updateAccessory = async (id, data) => await updateAccessoryAPI(id, data);
         const removeAccessory = async (id) => await removeAccessoryAPI(id);
         const transferStock = async (details) => await transferStockAPI(details);

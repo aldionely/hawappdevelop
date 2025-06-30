@@ -1,3 +1,5 @@
+// File: src/components/admin/tabs/AccessoriesTab.jsx (Sudah Diperbaiki)
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -54,87 +56,84 @@ const AccessoryForm = ({ accessory, onSave, onCancel }) => {
 };
 
 // Komponen untuk dashboard statistik
+
+// DIUBAH: Komponen Dashboard Statistik sekarang menghitung lebih banyak data
 const StatsCard = ({ title, value, icon, color }) => (
-    <div className="p-4 bg-white rounded-lg border flex items-start">
-        <div className={`p-2 rounded-full mr-4 ${color}`}>{icon}</div>
+    <div className={`p-4 rounded-lg flex items-start ${color}`}>
+        <div className="p-2 rounded-full mr-4 bg-white bg-opacity-50">{icon}</div>
         <div>
-            <p className="text-sm text-gray-500">{title}</p>
-            <p className="text-xl font-bold">Rp {value.toLocaleString()}</p>
+            <p className="text-sm font-medium text-gray-700">{title}</p>
+            <p className="text-2xl font-bold">Rp {value.toLocaleString('id-ID')}</p>
         </div>
     </div>
 );
 
-// DIUBAH: Komponen Dashboard Statistik sekarang menghitung lebih banyak data
 const StatsDashboard = () => {
     const { accessories, inventoryLogs } = useData();
 
     const stats = useMemo(() => {
-        if (!Array.isArray(accessories) || !Array.isArray(inventoryLogs)) {
-            return { totalProfit: 0, totalSales: 0, warehouseValue: 0, pipitanValue: 0, sadikValue: 0 };
-        }
-
-        const calculateLocationValue = (locationName) => {
-            return accessories.reduce((sum, acc) => {
-                const locationInv = acc.inventory.find(inv => inv.location === locationName);
-                const stock = locationInv ? locationInv.stock : 0;
-                return sum + (stock * acc.sell_price);
-            }, 0);
+        // Nilai default jika data belum siap
+        const defaultStats = {
+            totalSales: 0, totalProfit: 0, lifetimeAssetValue: 0,
+            totalCurrentStockValue: 0, gudangValue: 0, pipitanValue: 0, sadikValue: 0
         };
 
-        // Total profit dari penjualan yang sudah terjadi
-        const totalProfit = inventoryLogs
-            .filter(log => log.activity_type === 'PENJUALAN')
-            .reduce((sum, log) => {
-                const profit = (log.sell_price || 0) - (log.cost_price || 0);
-                return sum + profit;
-            }, 0);
-            
-        // BARU: Menghitung total penjualan kotor
+        if (!Array.isArray(accessories) || !Array.isArray(inventoryLogs)) {
+            return defaultStats;
+        }
+
+        // --- NILAI HISTORIS (TETAP & TERUS BERTAMBAH) ---
+        
+        // 1. Total Modal Masuk (Sejarah): Menghitung semua penambahan stok dari log.
+        const lifetimeAssetValue = inventoryLogs
+            .filter(log => log.quantity_change > 0) // Hanya log penambahan stok (PENAMBAHAN AWAL, TERIMA STOK, dll)
+            .reduce((sum, log) => sum + ((log.quantity_change || 0) * (log.cost_price || 0)), 0);
+
+        // 2. Total Penjualan & Profit (dari log penjualan)
         const totalSales = inventoryLogs
             .filter(log => log.activity_type === 'PENJUALAN')
             .reduce((sum, log) => sum + (log.sell_price || 0), 0);
+        const totalProfit = inventoryLogs
+            .filter(log => log.activity_type === 'PENJUALAN')
+            .reduce((sum, log) => sum + ((log.sell_price || 0) - (log.cost_price || 0)), 0);
 
-        // Menghitung nilai aset per lokasi
-        const warehouseValue = calculateLocationValue('GUDANG');
-        const pipitanValue = calculateLocationValue('PIPITAN');
-        const sadikValue = calculateLocationValue('SADIK');
 
-        return { totalProfit, totalSales, warehouseValue, pipitanValue, sadikValue };
+        // --- NILAI DINAMIS (BERUBAH SESUAI STOK SAAT INI) ---
+
+        // Fungsi untuk menghitung nilai stok SAAT INI di lokasi tertentu
+        const calculateCurrentLocationValue = (locationName) => {
+            return accessories.reduce((sum, acc) => {
+                const inventory = acc.inventory.find(inv => inv.location === locationName);
+                const stock = inventory ? inventory.stock : 0;
+                return sum + (stock * acc.sell_price); // Dihitung dari harga jual
+            }, 0);
+        };
+
+        const gudangValue = calculateCurrentLocationValue('GUDANG');
+        const pipitanValue = calculateCurrentLocationValue('PIPITAN');
+        const sadikValue = calculateCurrentLocationValue('SADIK');
+
+        // Total Nilai Semua Stok SAAT INI
+        const totalCurrentStockValue = gudangValue + pipitanValue + sadikValue;
+
+        return {
+            totalSales, totalProfit, lifetimeAssetValue,
+            totalCurrentStockValue, gudangValue, pipitanValue, sadikValue
+        };
     }, [accessories, inventoryLogs]);
 
     return (
-        // DIUBAH: Grid sekarang bisa menampilkan lebih banyak kartu
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <StatsCard 
-                title="Total Penjualan" 
-                value={stats.totalSales} 
-                icon={<DollarSign size={20} className="text-green-800" />}
-                color="bg-green-100"
-            />
-            <StatsCard 
-                title="Total Profit Penjualan" 
-                value={stats.totalProfit} 
-                icon={<TrendingUp size={20} className="text-blue-800" />}
-                color="bg-blue-100"
-            />
-            <StatsCard 
-                title="Nilai Stok Gudang" 
-                value={stats.warehouseValue}
-                icon={<Package size={20} className="text-orange-800" />}
-                color="bg-orange-100"
-            />
-            <StatsCard 
-                title="Nilai Stok PIPITAN" 
-                value={stats.pipitanValue}
-                icon={<Store size={20} className="text-purple-800" />}
-                color="bg-purple-100"
-            />
-            <StatsCard 
-                title="Nilai Stok SADIK" 
-                value={stats.sadikValue}
-                icon={<Store size={20} className="text-pink-800" />}
-                color="bg-pink-100"
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Kartu Statistik Historis */}
+            <StatsCard title="Total Modal Masuk (Sejarah)" value={stats.lifetimeAssetValue} icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-history"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>} color="bg-gray-100 text-gray-900" />
+            <StatsCard title="Total Penjualan Kotor" value={stats.totalSales} icon={<DollarSign size={22}/>} color="bg-green-100 text-green-900" />
+            <StatsCard title="Total Profit Penjualan" value={stats.totalProfit} icon={<TrendingUp size={22}/>} color="bg-blue-100 text-blue-900" />
+            
+            {/* Kartu Statistik Dinamis */}
+            <StatsCard title="Total Nilai Stok (Saat Ini)" value={stats.totalCurrentStockValue} icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-library-big"><rect width="8" height="18" x="3" y="3" rx="1"/><path d="M7 3v18"/><path d="M20.4 18.9c.2.5-.1 1.1-.6 1.3l-1.9.7c-.5.2-1.1-.1-1.3-.6L11.1 5.1c-.2-.5.1-1.1.6-1.3l1.9-.7c.5-.2 1.1.1 1.3.6z"/></svg>} color="bg-yellow-100 text-yellow-900" />
+            <StatsCard title="Nilai Stok GUDANG" value={stats.gudangValue} icon={<Package size={22}/>} color="bg-orange-100 text-orange-900" />
+            <StatsCard title="Nilai Stok PIPITAN" value={stats.pipitanValue} icon={<Store size={22}/>} color="bg-purple-100 text-purple-900" />
+            <StatsCard title="Nilai Stok SADIK" value={stats.sadikValue} icon={<Store size={22}/>} color="bg-pink-100 text-pink-900" />
         </div>
     );
 };
@@ -206,7 +205,6 @@ const ActivityLogTab = () => {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="font-bold text-sm">{log.accessories?.name || '(Barang Dihapus)'}</p>
-                                        {/* DIUBAH: Tampilkan detail yang lebih informatif */}
                                         {log.activity_type === 'OPER STOK' ? (
                                             <p className="text-xs text-gray-500">
                                                 {log.from_location} <MoveRight className="inline-block h-3 w-3" /> {log.to_location}
@@ -224,7 +222,6 @@ const ActivityLogTab = () => {
                                         <p className="text-sm">Jumlah: {log.quantity_change > 0 ? `+${log.quantity_change}` : log.quantity_change}</p>
                                     </div>
                                 </div>
-                                {/* BARU: Tampilkan catatan/notes jika ada */}
                                 {log.notes && (
                                     <p className="text-xs italic text-gray-500 mt-1 pt-1 border-t">
                                         Catatan: {log.notes}

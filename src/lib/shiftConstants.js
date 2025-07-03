@@ -13,6 +13,7 @@ export const appBalanceKeysAndNames = [
   { key: 'DIGIPOS', name: 'DIGIPOS' },
   { key: 'RITA', name: 'RITA' },
   { key: 'BERKAT', name: 'BERKAT' },
+  { key: 'QRIS', name: 'QRIS' },
 ];
 
 export const initialAppBalances = appBalanceKeysAndNames.reduce((acc, { key }) => {

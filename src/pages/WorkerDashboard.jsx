@@ -21,6 +21,7 @@ const WorkerDashboard = () => {
     getActiveShiftForCurrentUser, 
     loadingData,
     fetchShiftArchives,
+    fetchCurrentUserAppBalanceLogs,
   } = useData();
   const navigate = useNavigate();
   
@@ -53,6 +54,13 @@ const WorkerDashboard = () => {
       fetchShiftArchives();
     }
   }, [activeTab, user, isShiftStarted, fetchShiftArchives]);
+
+  useEffect(() => {
+    // Jika ada shift yang sedang berjalan, panggil fungsi untuk mengambil riwayat saldonya.
+    if (isShiftStarted) {
+      fetchCurrentUserAppBalanceLogs();
+    }
+  }, [isShiftStarted, fetchCurrentUserAppBalanceLogs]);
 
   const handleShiftStarted = () => setActiveTab("shift");
   

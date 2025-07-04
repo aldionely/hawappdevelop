@@ -285,13 +285,15 @@ export const AdminAccessoriesTab = () => {
             <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold">Manajemen Inventaris Aksesoris</h2><Button size="sm" onClick={() => { setEditingAccessory(null); setIsFormOpen(true); }}><PlusCircle size={16} className="mr-2" /> Tambah Barang Baru</Button></div>
             <StatsDashboard />
             <Tabs defaultValue="gudang" className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
+            <div className="overflow-x-auto pb-2">
+                <TabsList className="grid w-full grid-cols-5 mb-4 text-xs sm:text-sm min-w-[500px]">
                     <TabsTrigger value="gudang">Gudang</TabsTrigger>
                     <TabsTrigger value="pipitan">Stok PIPITAN</TabsTrigger>
                     <TabsTrigger value="sadik">Stok SADIK</TabsTrigger>
                     <TabsTrigger value="requests">Permintaan</TabsTrigger>
-                    <TabsTrigger value="sales">Riwayat Aktivitas</TabsTrigger>
+                    <TabsTrigger value="sales">Aktivitas</TabsTrigger>
                 </TabsList>
+            </div>
                 <TabsContent value="gudang"><WarehouseTab onEdit={handleEdit} /></TabsContent>
                 <TabsContent value="pipitan"><LocationStockTab locationName="PIPITAN" /></TabsContent>
                 <TabsContent value="sadik"><LocationStockTab locationName="SADIK" /></TabsContent>

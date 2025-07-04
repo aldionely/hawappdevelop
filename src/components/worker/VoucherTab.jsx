@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useContext } from 'react';
+// src/components/worker/VoucherTab.jsx
+
+import React, { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -7,11 +9,9 @@ import { Plus, Minus, Search, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { formatNumberInput, parseFormattedNumber } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { downloadVoucherStockReport } from '@/lib/downloadHelper';
+import { downloadVoucherStockReport, downloadCategoryVoucherReport } from '@/lib/downloadHelper';
 
-// Komponen-komponen pembantu tidak perlu diubah.
-
-// Komponen AddStockDialog
+// Komponen-komponen ini tidak berubah
 const AddStockDialog = ({ voucher, onConfirm }) => {
     const [quantity, setQuantity] = useState('');
     const [displayQuantity, setDisplayQuantity] = useState('');
@@ -52,10 +52,8 @@ const AddStockDialog = ({ voucher, onConfirm }) => {
     );
 };
 
-// Komponen VoucherItem
 const VoucherItem = ({ voucher, onSell, onAddStock }) => {
     const { toast } = useToast();
-
     const handleSellClick = () => {
         if (voucher.current_stock <= 0) {
             toast({ variant: 'destructive', title: 'Stok Habis', description: `Stok untuk ${voucher.name} sudah habis.` });
@@ -63,7 +61,6 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
         }
         onSell(voucher);
     };
-
     return (
         <div className="p-3 border rounded-lg bg-white flex justify-between items-center">
             <div>
@@ -88,8 +85,6 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
     );
 };
 
-
-// Komponen VoucherHistoryList
 const VoucherHistoryList = ({ transactions }) => {
     const voucherSales = useMemo(() => {
         return transactions
@@ -97,12 +92,10 @@ const VoucherHistoryList = ({ transactions }) => {
             .slice()
             .reverse();
     }, [transactions]);
-
     const formatTime = (dateString) => {
         if (!dateString) return '';
         return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     };
-
     return (
         <div className="space-y-2">
             {voucherSales.length > 0 ? (
@@ -124,36 +117,25 @@ const VoucherHistoryList = ({ transactions }) => {
     );
 };
 
-
-// --- FUNGSI PENGURUTAN DENGAN LOGIKA BARU ---
+// Fungsi pengurutan ini sudah benar
 const sortVoucherItems = (a, b) => {
-    const regex = /(\d+)\s*GB\s*(\d+)\s*D/i;
-
+    const regex = /([\d.,]+)\s*GB/i;
     const matchA = a.name.match(regex);
     const matchB = b.name.match(regex);
-
-    // Jika A punya format tapi B tidak, maka A ditaruh di atas.
-    if (matchA && !matchB) return -1;
-    // Jika B punya format tapi A tidak, maka B ditaruh di atas.
-    if (!matchA && matchB) return 1;
-
-    // Jika keduanya punya format, lakukan pengurutan bertingkat.
     if (matchA && matchB) {
-        const gbA = parseInt(matchA[1], 10);
-        const daysA = parseInt(matchA[2], 10);
-        const gbB = parseInt(matchB[1], 10);
-        const daysB = parseInt(matchB[2], 10);
-
-        // 1. Urutkan berdasarkan GB (menaik: kecil ke besar)
-        if (gbA !== gbB) {
-            return gbA - gbB;
-        }
-        // 2. Jika GB sama, urutkan berdasarkan hari (menaik: sebentar ke lama)
-        return daysA - daysB;
+        const gbA = parseFloat(matchA[1].replace(',', '.'));
+        const gbB = parseFloat(matchB[1].replace(',', '.'));
+        if (gbA !== gbB) return gbA - gbB;
     }
-
-    // Fallback: Jika keduanya tidak punya format, urutkan berdasarkan nama.
-    return a.name.localeCompare(b.name);
+    const daysRegex = /(\d+)\s*D/i;
+    const daysMatchA = a.name.match(daysRegex);
+    const daysMatchB = b.name.match(daysRegex);
+    if (daysMatchA && daysMatchB) {
+        const daysA = parseInt(daysMatchA[1], 10);
+        const daysB = parseInt(daysMatchB[1], 10);
+        if (daysA !== daysB) return daysA - daysB;
+    }
+    return a.name.localeCompare(b.name, undefined, { numeric: true });
 };
 
 
@@ -163,27 +145,13 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     
-    // Urutan Kategori
+    // Perbaikan nama kategori "UNLIMITED" menjadi "UNL" agar konsisten
     const categoryOrder = [
-        "VCR SMARTFREN HARIAN",
-        "VCR SMARTFREN UNLIMITED", // <- Perbaikan dari "UNL" menjadi "UNLIMITED"
-        "VCR INDOSAT UNLIMITED",
-        "VCR INDOSAT BULANAN",
-        "VCR INDOSAT HARIAN",
-        "VCR TRI BULANAN",
-        "VCR TRI HARIAN",
-        "VCR TELKOMSEL HARIAN",
-        "VCR TELKOMSEL BULANAN",
-        "VCR XL BULANAN",
-        "VCR XL HARIAN",
-        "VCR AXIS BULANAN",
-        "VCR AXIS HARIAN",
-        "KARTU SMARTFREN",
-        "KARTU AXIS",
-        "KARTU BYU",
-        "KARTU ISAT",
-        "KARTU TRI",
-        "KARTU XL",
+        "VCR SMARTFREN HARIAN", "VCR SMARTFREN UNL", "VCR INDOSAT UNL",
+        "VCR INDOSAT BULANAN", "VCR INDOSAT HARIAN", "VCR TRI BULANAN", "VCR TRI HARIAN",
+        "VCR TSEL HARIAN", "VCR TSEL BULANAN", "VCR XL BULANAN", "VCR XL HARIAN",
+        "VCR AXIS BULANAN", "VCR AXIS HARIAN", "KARTU SMARTFREN", "KARTU AXIS", "KARTU BYU",
+        "KARTU ISAT", "KARTU TRI", "KARTU XL",
     ];
 
     const locationVouchers = useMemo(() => {
@@ -215,7 +183,6 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
         return keys.sort((a, b) => {
             const indexA = categoryOrder.indexOf(a.toUpperCase());
             const indexB = categoryOrder.indexOf(b.toUpperCase());
-
             if (indexA !== -1 && indexB !== -1) return indexA - indexB;
             if (indexA !== -1) return -1;
             if (indexB !== -1) return 1;
@@ -241,8 +208,13 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
         }
     };
     
-    const handleDownloadReport = () => {
+    const handleDownloadFullReport = () => {
         downloadVoucherStockReport(activeShiftData, vouchers, false);
+    };
+    
+    // --- 1. INI ADALAH DEFINISI FUNGSI YANG HILANG ---
+    const handleDownloadCategory = (categoryName, vouchersInCategory) => {
+        downloadCategoryVoucherReport(activeShiftData, vouchersInCategory, categoryName, false);
     };
 
     return (
@@ -264,7 +236,7 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <Button variant="outline" size="sm" onClick={handleDownloadReport}>
+                        <Button variant="outline" size="sm" onClick={handleDownloadFullReport}>
                             <Download size={16} className="mr-2" />
                             Laporan
                         </Button>
@@ -273,10 +245,22 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
                         {sortedGroupedVoucherKeys.length > 0 ? (
                             sortedGroupedVoucherKeys.map(category => (
                                 <div key={category}>
-                                    <h3 className="font-bold text-md mb-2 sticky top-0 bg-gradient-to-b from-purple-100 to-transparent py-1">{category}</h3>
+                                    <div className="flex justify-between items-center mb-2 sticky top-0 bg-gradient-to-b from-purple-100 to-transparent py-1">
+                                        <h3 className="font-bold text-md">{category}</h3>
+                                        {/* 2. TOMBOL INI SEKARANG BISA MEMANGGIL FUNGSI DI ATAS */}
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-7 w-7 text-gray-500 hover:text-blue-600"
+                                            onClick={() => handleDownloadCategory(category, groupedVouchers[category])}
+                                            title={`Download laporan untuk ${category}`}
+                                        >
+                                            <Download size={20} />
+                                        </Button>
+                                    </div>
                                     <div className="space-y-2">
                                         {groupedVouchers[category]
-                                            .sort(sortVoucherItems) // Menggunakan fungsi pengurutan baru
+                                            .sort(sortVoucherItems)
                                             .map(voucher => (
                                             <VoucherItem 
                                                 key={voucher.id} 

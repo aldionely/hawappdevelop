@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+// src/components/admin/tabs/ProductsTab.jsx
+
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -33,16 +35,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Komponen Form dipisahkan agar lebih rapi
 const ProductForm = ({ product, onSave, onCancel }) => {
   const { appBalanceKeysAndNames } = useData();
   const [name, setName] = useState(product ? product.name || '' : '');
   const [keyword, setKeyword] = useState(product ? product.keyword || '' : '');
   const [category, setCategory] = useState(product ? product.category || '' : '');
-  const [costPrice, setCostPrice] = useState(product ? product.cost_price : "");
+  const [costPrice, setCostPrice] = useState(product ? String(product.cost_price) : "");
   const [displayCostPrice, setDisplayCostPrice] = useState(product ? formatNumberInput(String(product.cost_price)) : "");
-  const [sellPrice, setSellPrice] = useState(product ? product.sell_price : "");
+  const [sellPrice, setSellPrice] = useState(product ? String(product.sell_price) : "");
   const [displaySellPrice, setDisplaySellPrice] = useState(product ? formatNumberInput(String(product.sell_price)) : "");
-  const [relatedAppKey, setRelatedAppKey] = useState(product && product.related_app_key ? product.related_app_key : "NONE"); 
+  const [relatedAppKey, setRelatedAppKey] = useState(product && product.related_app_key ? product.related_app_key : "NONE");
   const { toast } = useToast();
 
   const handleCostPriceChange = (e) => {
@@ -74,13 +77,13 @@ const ProductForm = ({ product, onSave, onCancel }) => {
       return;
     }
     
-    onSave({ 
-      name, 
-      keyword: keyword.toUpperCase(), 
+    onSave({
+      name,
+      keyword: keyword.toUpperCase(),
       category: category.toUpperCase(),
-      cost_price: numCostPrice, 
+      cost_price: numCostPrice,
       sell_price: numSellPrice,
-      related_app_key: relatedAppKey === "NONE" ? null : relatedAppKey, 
+      related_app_key: relatedAppKey === "NONE" ? null : relatedAppKey,
     });
   };
 
@@ -91,7 +94,6 @@ const ProductForm = ({ product, onSave, onCancel }) => {
       <Input type="text" placeholder="Kategori Produk (e.g. DIAMOND FF)" value={category} onChange={(e) => setCategory(e.target.value)} required className="text-xs sm:text-sm" />
       <Input type="text" placeholder="Harga Modal (Rp)" value={displayCostPrice} onChange={handleCostPriceChange} required className="text-xs sm:text-sm" />
       <Input type="text" placeholder="Harga Jual (Rp)" value={displaySellPrice} onChange={handleSellPriceChange} required className="text-xs sm:text-sm" />
-      
       <Select value={relatedAppKey} onValueChange={setRelatedAppKey}>
         <SelectTrigger className="w-full text-xs sm:text-sm">
           <SelectValue placeholder="Pilih Aplikasi Terkait (Opsional)" />
@@ -103,7 +105,6 @@ const ProductForm = ({ product, onSave, onCancel }) => {
           ))}
         </SelectContent>
       </Select>
-
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="outline" size="sm" onClick={onCancel}>Batal</Button>
@@ -115,14 +116,44 @@ const ProductForm = ({ product, onSave, onCancel }) => {
 };
 
 
+// Fungsi pengurutan diletakkan di luar agar tidak dibuat ulang setiap render
+const sortByNameNumerically = (a, b) => {
+    const numRegex = /[\d.]+/g;
+    const nameA = a.name;
+    const nameB = b.name;
+    const numsA = nameA.match(numRegex)?.map(Number) || [];
+    const numsB = nameB.match(numRegex)?.map(Number) || [];
+    const minLength = Math.min(numsA.length, numsB.length);
+    for (let i = 0; i < minLength; i++) {
+        if (numsA[i] !== numsB[i]) {
+            return numsA[i] - numsB[i];
+        }
+    }
+    if (numsA.length !== numsB.length) {
+        return numsA.length - numsB.length;
+    }
+    return nameA.localeCompare(nameB);
+};
+
 export const ProductsTab = () => {
   const { products, addProduct, updateProduct, removeProduct, appBalanceKeysAndNames } = useData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-
   const [filterCategory, setFilterCategory] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Ref untuk kontainer scroll
+  const scrollContainerRef = useRef(null);
+  const scrollPositionRef = useRef(null);
+
+  // useEffect untuk mengembalikan posisi scroll
+  useEffect(() => {
+    if (scrollContainerRef.current && scrollPositionRef.current !== null) {
+      scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+      scrollPositionRef.current = null;
+    }
+  }, [products]); // Dijalankan saat daftar produk berubah
 
   const getAppName = (appKey) => {
     if (!appKey || appKey === "NONE") return 'Tidak Ada';
@@ -132,59 +163,43 @@ export const ProductsTab = () => {
   
   const categories = useMemo(() => {
     if (!products) return [];
-    const uniqueCategories = new Set(products.map(p => p.category || 'Semua Produk'));
+    const uniqueCategories = new Set(products.map(p => p.category || 'Lainnya'));
     return Array.from(uniqueCategories).sort();
   }, [products]);
 
   const filteredProducts = useMemo(() => {
     if (!filterCategory) return [];
-
-    let results = products.filter(p => (p.category || 'Semua Produk') === filterCategory);
-
+    let results = products.filter(p => (p.category || 'Lainnya') === filterCategory);
     if (searchTerm) {
       results = results.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.keyword.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-
     return results;
   }, [products, filterCategory, searchTerm]);
 
-  // Fungsi untuk mengurutkan produk
-  const sortProducts = (a, b) => {
-    const getNumberFromName = (name) => {
-      const match = name.match(/\d+$/);
-      return match ? parseInt(match[0], 10) : Infinity;
-    };
-    const numA = getNumberFromName(a.name);
-    const numB = getNumberFromName(b.name);
-    if (numA !== numB) {
-      return numA - numB;
-    }
-    return a.name.localeCompare(b.name);
-  };
-
   const handleSaveProduct = async (productData) => {
-    let result;
+    if (editingProduct && scrollContainerRef.current) {
+        scrollPositionRef.current = scrollContainerRef.current.scrollTop;
+    }
+
     const existingProductWithKeyword = products.find(p => p.keyword === productData.keyword && (!editingProduct || p.id !== editingProduct.id));
     if (existingProductWithKeyword) {
         toast({ variant: "destructive", title: "Gagal", description: "Kata kunci produk sudah digunakan." });
         return;
     }
 
-    if (editingProduct) {
-      result = await updateProduct(editingProduct.id, productData);
-    } else {
-      result = await addProduct(productData);
-    }
+    const result = editingProduct
+      ? await updateProduct(editingProduct.id, productData)
+      : await addProduct(productData);
 
     if (result.success) {
       toast({ title: "Berhasil", description: `Produk telah ${editingProduct ? 'diperbarui' : 'ditambahkan'}.` });
       setIsFormOpen(false);
       setEditingProduct(null);
     } else {
-      toast({ variant: "destructive", title: "Gagal", description: result.error || "Terjadi kesalahan." });
+      toast({ variant: "destructive", title: "Gagal", description: result.error?.message || "Terjadi kesalahan." });
     }
   };
 
@@ -203,7 +218,7 @@ export const ProductsTab = () => {
     if (result.success) {
       toast({ title: "Berhasil", description: "Produk telah dihapus." });
     } else {
-      toast({ variant: "destructive", title: "Gagal", description: result.error || "Terjadi kesalahan." });
+      toast({ variant: "destructive", title: "Gagal", description: result.error?.message || "Terjadi kesalahan." });
     }
   };
   
@@ -234,22 +249,22 @@ export const ProductsTab = () => {
 
       <div className="flex flex-wrap gap-2 items-center p-2 border-b">
         <Select value={filterCategory} onValueChange={(value) => { setFilterCategory(value); setSearchTerm(""); }}>
-            <SelectTrigger className="w-[200px] text-xs sm:text-sm">
-                <SelectValue placeholder="Pilih Kategori..." />
-            </SelectTrigger>
-            <SelectContent>
-                {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))}
-            </SelectContent>
+          <SelectTrigger className="w-[200px] text-xs sm:text-sm">
+            <SelectValue placeholder="Pilih Kategori..." />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map(cat => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
         </Select>
         <Input
-            type="text"
-            placeholder="Cari nama atau kata kunci..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="max-w-xs text-xs sm:text-sm"
-            disabled={!filterCategory}
+          type="text"
+          placeholder="Cari nama atau kata kunci..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          className="max-w-xs text-xs sm:text-sm"
+          disabled={!filterCategory}
         />
       </div>
 
@@ -258,23 +273,20 @@ export const ProductsTab = () => {
       ) : filteredProducts.length === 0 ? (
         <p className="text-center text-gray-500 py-4 text-xs sm:text-sm">Tidak ada produk yang ditemukan untuk kategori ini.</p>
       ) : (
-        <div className="space-y-2">
+        <div ref={scrollContainerRef} className="space-y-2 max-h-[65vh] overflow-y-auto pr-2">
           {filteredProducts
-            .sort(sortProducts)
+            .sort(sortByNameNumerically)
             .map((product) => {
-              // --- Logika yang dipisahkan dari JSX ---
               const profit = product.sell_price - product.cost_price;
               let deductionText = null;
-
               if (product.related_app_key) {
-                  const isSpecialKey = specialAppKeysForCostPriceDeduction.includes(product.related_app_key.toUpperCase());
-                  if (isSpecialKey) {
-                      deductionText = "(Saldo App dikurangi Modal)";
-                  } else if (profit > 0) {
-                      deductionText = "(Saldo App dikurangi Profit)";
-                  }
+                const isSpecialKey = specialAppKeysForCostPriceDeduction.includes(product.related_app_key.toUpperCase());
+                if (isSpecialKey) {
+                  deductionText = "(Saldo App dikurangi Modal)";
+                } else if (profit > 0) {
+                  deductionText = "(Saldo App dikurangi Profit)";
+                }
               }
-
               return (
                 <div key={product.id} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg bg-white text-xs sm:text-sm">
                   <div>

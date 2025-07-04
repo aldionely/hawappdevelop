@@ -113,13 +113,15 @@ const WorkerDashboard = () => {
           </Tabs>
         ) : (
            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-4 text-xs sm:text-sm">
-                <TabsTrigger value="shift">Shift</TabsTrigger>
-                <TabsTrigger value="vouchers">Voucher</TabsTrigger>
-                <TabsTrigger value="products">PPOB</TabsTrigger>
-                <TabsTrigger value="appBalances">Saldo Aplikasi</TabsTrigger>
-                <TabsTrigger value="accessories">Aksesoris</TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto pb-2">
+              <TabsList className="grid w-full grid-cols-5 mb-4 text-xs sm:text-sm min-w-[500px]">
+                  <TabsTrigger value="shift">Shift</TabsTrigger>
+                  <TabsTrigger value="vouchers">Voucher</TabsTrigger>
+                  <TabsTrigger value="products">PPOB</TabsTrigger>
+                  <TabsTrigger value="appBalances">Saldo Aplikasi</TabsTrigger>
+                  <TabsTrigger value="accessories">Aksesoris</TabsTrigger>
+              </TabsList>
+            </div>
             <TabsContent value="shift">
                 {activeShiftData && <ShiftInProgressManager initialShiftData={activeShiftData} onShiftEnded={handleShiftEnded} />}
             </TabsContent>

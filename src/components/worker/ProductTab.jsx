@@ -127,8 +127,8 @@ export const ProductTab = () => {
                                 <div key={product.id} className="p-3 border rounded-lg bg-white flex flex-col items-start space-y-2 shadow-sm">
                                     <div className="w-full">
                                         <p className="font-semibold text-sm truncate" title={product.name}>{product.name}</p>
-                                        <p className="text-xs text-gray-500">Kunci: {product.keyword}</p>
-                                        <p className="text-xs text-gray-500">App: {getAppName(product.related_app_key)}</p>
+                                        <p className="text-xs text-gray-500">Kode: {product.keyword}</p>
+                                        <p className="text-xs text-gray-500">Aplikasi: {getAppName(product.related_app_key)}</p>
                                     </div>
                                     <div className="w-full flex justify-between items-center mt-auto pt-2 border-t">
                                         <p className="font-semibold text-xs">Rp {product.sell_price.toLocaleString()}</p>

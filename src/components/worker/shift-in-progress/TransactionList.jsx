@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// src/components/worker/shift-in-progress/TransactionList.jsx
+
+import React, { useState, useRef, useEffect } from 'react'; // 1. Tambahkan useRef dan useEffect
 import { Edit3, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TransactionForm } from './TransactionForm'; 
@@ -18,11 +20,27 @@ export const TransactionList = ({ transactions, onEditTransaction, onDeleteTrans
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
 
+  // 2. Buat "pengingat" untuk kontainer scroll dan posisinya
+  const scrollContainerRef = useRef(null);
+  const scrollPositionRef = useRef(null);
+
+  // 5. useEffect ini akan mengembalikan posisi scroll setelah daftar di-render ulang
+  useEffect(() => {
+    if (scrollContainerRef.current && scrollPositionRef.current !== null) {
+      scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+      scrollPositionRef.current = null; // Reset setelah digunakan
+    }
+  }, [transactions]); // Dijalankan setiap kali 'transactions' berubah
+
   const handleEditClick = (transaction) => {
     setEditingTransaction(transaction);
   };
 
   const handleSaveEdit = (editedTx) => {
+    // 4. Sebelum menyimpan, catat posisi scroll saat ini
+    if (scrollContainerRef.current) {
+      scrollPositionRef.current = scrollContainerRef.current.scrollTop;
+    }
     onEditTransaction(editedTx);
     setEditingTransaction(null);
   };
@@ -44,7 +62,8 @@ export const TransactionList = ({ transactions, onEditTransaction, onDeleteTrans
   };
 
   return (
-    <div className="p-3 border rounded-lg bg-white max-h-96 overflow-y-auto">
+    // 3. Pasang "pengingat" ke div yang bisa di-scroll
+    <div ref={scrollContainerRef} className="p-3 border rounded-lg bg-white max-h-96 overflow-y-auto">
       <h3 className="text-sm font-semibold mb-2">Riwayat Transaksi Shift Ini</h3>
       {editingTransaction && (
         <div className="mb-4 p-2 border rounded-md bg-gray-50">

@@ -1,50 +1,33 @@
-import React, { useState } from 'react';
-// BARU: Tambahkan ListChecks
-import { ChevronDown, ChevronRight, Trash2, Eye, FileText, Download, Ticket, ListChecks } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ChevronDown, Trash2, Eye, FileText, Download, Ticket, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { TransactionHistoryDialog } from '@/components/shared/TransactionHistoryDialog';
 import { ShiftReportDialog } from '@/components/worker/ShiftReportDialog';
-import { downloadTransactions, downloadVoucherStockReport } from '@/lib/downloadHelper'; 
-import { useData } from '@/contexts/DataContext';
+import { BalanceHistoryDialog } from '@/components/shared/BalanceHistoryDialog';
 import { AppBalancesDisplay } from '@/components/worker/AppBalancesDisplay';
-// BARU: Impor komponen dialog yang sudah kita buat
-import { BalanceHistoryDialog } from '@/components/shared/BalanceHistoryDialog'; 
+import { downloadTransactions, downloadVoucherStockReport } from '@/lib/downloadHelper';
+import { useData } from '@/contexts/DataContext';
+import { formatDateTime } from '@/lib/utils';
 
+// DIKEMBALIKAN: Komponen ini sekarang berisi semua informasi detail dan tombol
 const ArchivedShiftItem = ({ shift }) => {
   const [showTransactions, setShowTransactions] = useState(false);
   const [showReport, setShowReport] = useState(false);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  // BARU: State untuk mengontrol dialog riwayat saldo
-  const [showBalanceHistory, setShowBalanceHistory] = useState(false); 
+  const [showBalanceHistory, setShowBalanceHistory] = useState(false);
   const { toast } = useToast();
-  // DIUBAH: Tambahkan 'products' ke dalam data yang diambil
-  const { removeShiftArchive, initialAppBalances, vouchers, products } = useData();
+  const { removeShiftArchive, vouchers, products, initialAppBalances } = useData();
 
   const handleDelete = async () => {
     const result = await removeShiftArchive(shift.id);
     if (result.success) {
-      toast({
-        title: "Shift Dihapus",
-        description: `Arsip shift untuk ${shift.workerName || shift.workername} pada ${new Date(shift.startTime || shift.starttime).toLocaleDateString()} telah dihapus.`,
-      });
+      toast({ title: "Shift Dihapus" });
     } else {
-      toast({
-        variant: "destructive",
-        title: "Gagal Menghapus",
-        description: result.error || "Terjadi kesalahan saat menghapus arsip.",
-      });
+      toast({ variant: "destructive", title: "Gagal Menghapus", description: result.error?.message });
     }
   };
   
@@ -52,202 +35,168 @@ const ArchivedShiftItem = ({ shift }) => {
     downloadVoucherStockReport(shift, vouchers, true);
   };
 
-  const uangTransaksi = shift.uangTransaksi || shift.uangtransaksi || 0;
-  const kasAwal = shift.kasAwal || shift.kasawal || 0;
-  const kasAkhir = shift.kasAkhir || shift.kasakhir || 0;
-  const totalIn = shift.totalIn || shift.totalin || 0;
-  const totalOut = shift.totalOut || shift.totalout || 0;
-  const totalAdminFee = shift.totalAdminFee || shift.totaladminfee || 0;
   const selisih = shift.selisih || 0;
+  const uangTransaksi = shift.uangTransaksi || 0;
+  const kasAwal = shift.kasAwal || 0;
+  const kasAkhir = shift.kasAkhir || 0;
+  const totalIn = shift.totalIn || 0;
+  const totalOut = shift.totalOut || 0;
+  const totalAdminFee = shift.totalAdminFee || 0;
   const appBalances = shift.app_balances || initialAppBalances;
 
-
   return (
-    <div
-      className="p-2 sm:p-3 border rounded-lg bg-white mb-2"
-    >
-       <div className="flex justify-between items-start">
-        <div className="flex-1 cursor-pointer" onClick={() => setIsDetailsOpen(!isDetailsOpen)}>
-            <p className="text-xs text-gray-500">
-                {new Date(shift.startTime || shift.starttime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short', hour12: false })} - 
-                {new Date(shift.endTime || shift.endtime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short', hour12: false })}
-            </p>
-            <p className="text-xs text-gray-500">Lokasi: {shift.lokasi || '-'}</p>
-            <p className={`text-xs font-semibold ${uangTransaksi >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
-                Uang Transaksi: Rp {uangTransaksi.toLocaleString()}
-            </p>
+    <div className="p-4 border rounded-lg bg-gray-50 mb-3 shadow-sm">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <p className="font-bold text-sm text-gray-800">{shift.workerName}</p>
+          <p className="text-xs text-gray-500">{formatDateTime(shift.startTime).time} - {formatDateTime(shift.endTime).time}</p>
         </div>
         <div className="flex items-center space-x-1">
-           <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-indigo-600" onClick={() => setShowReport(true)} title="Lihat Laporan Akhir">
-            <FileText size={14} />
-          </Button>
-          {/* BARU: Tombol untuk menampilkan riwayat saldo */}
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-cyan-600" onClick={() => setShowBalanceHistory(true)} title="Riwayat Saldo App">
-            <ListChecks size={14} />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-blue-600" onClick={() => setShowTransactions(true)} title="Lihat Transaksi">
-            <Eye size={14} />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-green-600" onClick={() => downloadTransactions(shift, shift.workerName || shift.workername)} title="Download Transaksi">
-            <Download size={14} />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-orange-600" onClick={handleDownloadVoucherReport} title="Download Laporan Voucher">
-            <Ticket size={14} />
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-red-600" title="Hapus Arsip">
-                <Trash2 size={14} />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Tindakan ini akan menghapus arsip shift secara permanen. Data tidak dapat dikembalikan.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Batal</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Hapus</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-           <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500" onClick={() => setIsDetailsOpen(!isDetailsOpen)}>
-             {isDetailsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-           </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-indigo-600" onClick={() => setShowReport(true)} title="Laporan Akhir"><FileText size={14} /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-cyan-600" onClick={() => setShowBalanceHistory(true)} title="Riwayat Saldo App"><ListChecks size={14} /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-blue-600" onClick={() => setShowTransactions(true)} title="Riwayat Transaksi"><Eye size={14} /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-green-600" onClick={() => downloadTransactions(shift, shift.workerName)} title="Unduh Transaksi"><Download size={14} /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-orange-600" onClick={handleDownloadVoucherReport} title="Unduh Laporan Voucher"><Ticket size={14} /></Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-gray-500 hover:text-red-600" title="Hapus"><Trash2 size={14} /></Button></AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader><AlertDialogTitle>Hapus Arsip?</AlertDialogTitle><AlertDialogDescription>Yakin ingin menghapus arsip ini?</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-red-600">Hapus</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
       </div>
       
-      {isDetailsOpen && (
-        <div className="mt-2 pt-2 border-t">
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-3 text-xs">
-              <div className="p-1.5 sm:p-2 bg-blue-50 rounded-lg">
-              <p>Kas Awal</p>
-              <p className="font-semibold">Rp {kasAwal.toLocaleString()}</p>
-              </div>
-              <div className="p-1.5 sm:p-2 bg-purple-50 rounded-lg">
-              <p>Kas Akhir Aktual</p>
-              <p className="font-semibold">Rp {kasAkhir.toLocaleString()}</p>
-              </div>
-              <div className="p-1.5 sm:p-2 bg-green-50 rounded-lg">
-              <p>Uang Masuk</p>
-              <p className="font-semibold text-green-600">Rp {totalIn.toLocaleString()}</p>
-              </div>
-              <div className="p-1.5 sm:p-2 bg-red-50 rounded-lg">
-              <p>Uang Keluar</p>
-              <p className="font-semibold text-red-600">Rp {totalOut.toLocaleString()}</p>
-              </div>
-              <div className="p-1.5 sm:p-2 bg-indigo-50 rounded-lg">
-              <p>Total Admin</p>
-              <p className="font-semibold text-indigo-600">Rp {totalAdminFee.toLocaleString()}</p>
-              </div>
+      <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="p-2 bg-gray-100 rounded-md"><p>Kas Awal</p><p className="font-bold text-sm">Rp {kasAwal.toLocaleString()}</p></div>
+        <div className="p-2 bg-blue-100 rounded-md"><p>Uang Transaksi</p><p className="font-bold text-sm text-blue-700">Rp {uangTransaksi.toLocaleString()}</p></div>
+          <div className="p-2 bg-green-100 rounded-md"><p>Uang Masuk</p><p className="font-bold text-sm text-green-700">Rp {totalIn.toLocaleString()}</p></div>
+          <div className="p-2 bg-red-100 rounded-md"><p>Uang Keluar</p><p className="font-bold text-sm text-red-700">Rp {totalOut.toLocaleString()}</p></div>
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+        <div className="p-2 bg-purple-100 rounded-md"><p>Total Admin</p><p className="font-bold text-sm text-purple-700">Rp {totalAdminFee.toLocaleString()}</p></div>
+          <div className="p-2 bg-white rounded-md"><p>Kas Akhir Aktual</p><p className="font-bold text-sm">Rp {kasAkhir.toLocaleString()}</p></div>
+      </div>
+      
+      <div className={`mt-2 p-2 rounded-md text-sm font-semibold ${selisih === 0 ? 'bg-green-100 text-green-800' : selisih > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+        Selisih Kas: Rp {Math.abs(selisih).toLocaleString()} {selisih === 0 ? '(Sesuai)' : selisih > 0 ? '(Lebih)' : '(Kurang)'}
+      </div>
+
+      {shift.notes && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+              <p className="text-md font-semibold mb-1">Catatan Shift:</p>
+              <p className="text-md text-gray-700 whitespace-pre-wrap bg-white p-2 border rounded-md">{shift.notes}</p>
           </div>
-          <div className={`p-1.5 sm:p-2 rounded-lg text-xs ${selisih === 0 ? 'bg-gray-100 text-gray-700' : selisih > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              <p>Selisih Kas</p>
-              <p className={`font-semibold`}>
-              Rp {Math.abs(selisih).toLocaleString()}
-              {selisih === 0 ? ' (Sesuai)' : selisih > 0 ? ' (Lebih)' : ' (Kurang)'}
-              </p>
-          </div>
-           {shift.notes && (
-              <div className="mt-2 pt-2 border-t">
-              <p className="text-xs font-semibold">Catatan:</p>
-              <p className="text-xs text-gray-600 whitespace-pre-wrap">{shift.notes}</p>
-              </div>
-          )}
-          <div className="mt-2">
+      )}
+      {appBalances && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
               <AppBalancesDisplay balances={appBalances} title="Saldo Aplikasi (Akhir Shift)" />
           </div>
-        </div>
       )}
 
-      <TransactionHistoryDialog 
-        isOpen={showTransactions}
-        onOpenChange={setShowTransactions}
-        transactions={shift.transactions || []}
-        shiftDetails={{
-            workerName: shift.workerName || shift.workername, 
-            startTime: shift.startTime || shift.starttime, 
-            endTime: shift.endTime || shift.endtime, 
-            lokasi: shift.lokasi,
-            app_balances: appBalances
-        }}
-        isArchived={true}
-        showDownloadButton={true}
-      />
-      <ShiftReportDialog
-        shift={shift} 
-        isOpen={showReport}
-        onOpenChange={setShowReport}
-        showDownloadButton={true}
-      />
-      {/* BARU: Render komponen dialog riwayat saldo */}
-      <BalanceHistoryDialog
-        isOpen={showBalanceHistory}
-        onOpenChange={setShowBalanceHistory}
-        shift={shift}
-        products={products}
-      />
+      <TransactionHistoryDialog isOpen={showTransactions} onOpenChange={setShowTransactions} transactions={shift.transactions || []} shiftDetails={shift} isArchived={true} showDownloadButton={true} />
+      <ShiftReportDialog shift={shift} isOpen={showReport} onOpenChange={setShowReport} showDownloadButton={true} />
+      <BalanceHistoryDialog isOpen={showBalanceHistory} onOpenChange={setShowBalanceHistory} shift={shift} products={products}/>
     </div>
   );
 };
 
-const WorkerArchive = ({ worker, shifts }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const { initialAppBalances } = useData();
 
-  if (shifts.length === 0) {
-    return null; 
-  }
-
-  const sortedShifts = shifts.sort((a, b) => new Date(b.endTime || b.endtime) - new Date(a.endTime || a.endtime));
-
-
-  return (
-    <div 
-      className="p-2 sm:p-3 border rounded-lg bg-gray-50"
-    >
-      <div 
-        className="flex justify-between items-center cursor-pointer"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <h3 className="font-semibold text-xs sm:text-sm">{worker.name} ({shifts.length} arsip)</h3>
-        {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-      </div>
-      
-      {isOpen && (
-        <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t max-h-[calc(100vh-300px)] overflow-y-auto custom-scrollbar">
-          {sortedShifts.map(shift => (
-            <ArchivedShiftItem 
-              key={shift.id || shift.endTime || shift.endtime} 
-              shift={{...shift, app_balances: shift.app_balances || initialAppBalances}} 
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
+// Komponen utama dengan filter dan struktur Tab (TETAP SAMA)
 export const ArchivedShiftsList = ({ workers, shiftArchives }) => {
-   if (!Array.isArray(workers) || !Array.isArray(shiftArchives)) {
-    return <p className="text-center text-gray-500 py-6 sm:py-8 text-xs sm:text-sm">Memuat data arsip...</p>;
-  }
-  return (
-    <div className="space-y-3 sm:space-y-4">
-      {workers.length > 0 ? (
-        workers.map(worker => {
-          const workerShifts = shiftArchives.filter(archive => archive.username === worker.username);
-          if (workerShifts.length === 0) return null;
-          return <WorkerArchive key={worker.id || worker.username} worker={worker} shifts={workerShifts} />;
-        }).filter(Boolean)
-      ) : (
-         <p className="text-center text-gray-500 py-6 sm:py-8 text-xs sm:text-sm">Belum ada user pekerja.</p>
-      )}
-      {workers.length > 0 && shiftArchives.length === 0 && (
-         <p className="text-center text-gray-500 py-6 sm:py-8 text-xs sm:text-sm">Belum ada arsip shift untuk user manapun.</p>
-      )}
-    </div>
-  );
+    // ... (seluruh kode di sini tetap sama seperti respons sebelumnya)
+    const [selectedLocation, setSelectedLocation] = useState('PIPITAN');
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+    const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
+
+    const { years, months, groupedByDate } = useMemo(() => {
+        if (!shiftArchives) return { years: [], months: {}, groupedByDate: {} };
+
+        const filteredShifts = shiftArchives.filter(s => s.lokasi === selectedLocation);
+        const yearsSet = new Set();
+        const monthsMap = {};
+        
+        filteredShifts.forEach(s => {
+            const date = new Date(s.startTime);
+            const year = date.getFullYear().toString();
+            monthsMap[year] = monthsMap[year] || new Set();
+            monthsMap[year].add((date.getMonth() + 1).toString().padStart(2, '0'));
+            yearsSet.add(year);
+        });
+
+        const grouped = filteredShifts
+            .filter(s => {
+                const date = new Date(s.startTime);
+                return date.getFullYear().toString() === selectedYear && (date.getMonth() + 1).toString().padStart(2, '0') === selectedMonth;
+            })
+            .reduce((acc, shift) => {
+                const day = shift.startTime.split('T')[0];
+                if (!acc[day]) acc[day] = [];
+                acc[day].push(shift);
+                return acc;
+            }, {});
+
+        return {
+            years: Array.from(yearsSet).sort((a, b) => b - a),
+            months: Object.keys(monthsMap).reduce((acc, year) => ({...acc, [year]: Array.from(monthsMap[year]).sort((a,b) => b-a) }), {}),
+            groupedByDate: grouped
+        };
+    }, [shiftArchives, selectedLocation, selectedYear, selectedMonth]);
+
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
+    
+    if (!Array.isArray(workers) || !Array.isArray(shiftArchives)) {
+        return <p className="text-center text-gray-500 py-8">Memuat data arsip...</p>;
+    }
+
+    const LocationView = ({ location }) => (
+        <div className="space-y-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger><SelectValue placeholder="Pilih Tahun" /></SelectTrigger>
+                    <SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger><SelectValue placeholder="Pilih Bulan" /></SelectTrigger>
+                    <SelectContent>{(months[selectedYear] || []).map(m => <SelectItem key={m} value={m}>{monthNames[parseInt(m, 10) - 1]}</SelectItem>)}</SelectContent>
+                </Select>
+            </div>
+            
+            {sortedDates.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">Tidak ada data untuk periode ini di lokasi {location}.</p>
+            ) : (
+                <Accordion type="single" collapsible className="w-full space-y-3">
+                    {sortedDates.map(date => (
+                        <AccordionItem value={date} key={date} className="border-b-0">
+                            <AccordionTrigger className="p-4 border rounded-lg bg-white font-bold text-base hover:bg-gray-50 data-[state=open]:rounded-b-none">
+                                {new Date(date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </AccordionTrigger>
+                            <AccordionContent className="p-4 border border-t-0 rounded-b-lg bg-white/60">
+                                {groupedByDate[date].map(shift => (
+                                    <ArchivedShiftItem key={shift.id} shift={shift} />
+                                ))}
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            )}
+        </div>
+    )
+
+    return (
+        <Tabs defaultValue="PIPITAN" className="w-full" onValueChange={setSelectedLocation}>
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="PIPITAN">PIPITAN</TabsTrigger>
+                <TabsTrigger value="SADIK">SADIK</TabsTrigger>
+            </TabsList>
+            <TabsContent value="PIPITAN" className="mt-4">
+                <LocationView location="PIPITAN" />
+            </TabsContent>
+            <TabsContent value="SADIK" className="mt-4">
+                <LocationView location="SADIK" />
+            </TabsContent>
+        </Tabs>
+    );
 };

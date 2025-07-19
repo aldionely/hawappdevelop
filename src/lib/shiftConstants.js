@@ -4,6 +4,7 @@ export const appBalanceKeysAndNames = [
   { key: 'BRI', name: 'BRI' },
   { key: 'MANDIRI', name: 'MANDIRI' },
   { key: 'SEABANK', name: 'SEABANK' },
+  { key: 'BNI', name: 'BNI' },
   { key: 'DANA', name: 'DANA' },
   { key: 'GOPAY', name: 'GOPAY' },
   { key: 'OVO', name: 'OVO' },
@@ -14,6 +15,7 @@ export const appBalanceKeysAndNames = [
   { key: 'RITA', name: 'RITA' },
   { key: 'BERKAT', name: 'BERKAT' },
   { key: 'QRIS', name: 'QRIS' },
+
 ];
 
 export const initialAppBalances = appBalanceKeysAndNames.reduce((acc, { key }) => {

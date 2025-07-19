@@ -145,6 +145,55 @@ export const DataProvider = ({ children }) => {
             return await updateActiveShift(updatedShiftDetails);
         };
 
+        const transferAppBalance = async (fromKey, toKey, amount, description) => {
+            if (!activeShift) return { success: false, error: "Tidak ada shift aktif." };
+        
+            const fromName = appBalanceDefinitions.find(app => app.key === fromKey)?.name || fromKey;
+            const toName = appBalanceDefinitions.find(app => app.key === toKey)?.name || toKey;
+            const numericAmount = parseSafeNumber(amount);
+            
+            // --- PERUBAHAN LOGIKA DI SINI ---
+            // Menggabungkan deskripsi dari pengguna dengan informasi transfer otomatis.
+            const fromDesc = description ? `${description} (Oper ke ${toName})` : `Oper ke ${toName}`;
+            const toDesc = description ? `${description} (Oper dari ${fromName})` : `Oper dari ${fromName}`;
+            
+            // Siapkan dua log: satu untuk pengurangan, satu untuk penambahan
+            const fromLog = {
+                shift_id: activeShift.id, user_id: user.id, username: user.name, 
+                app_key: fromKey, app_name: fromName, type: 'PENGURANGAN', 
+                amount: numericAmount, 
+                description: fromDesc, // Menggunakan deskripsi baru
+                previous_balance: parseSafeNumber(activeShift.app_balances[fromKey]),
+                new_balance: parseSafeNumber(activeShift.app_balances[fromKey]) - numericAmount
+            };
+        
+            const toLog = {
+                shift_id: activeShift.id, user_id: user.id, username: user.name,
+                app_key: toKey, app_name: toName, type: 'PENAMBAHAN', 
+                amount: numericAmount, 
+                description: toDesc, // Menggunakan deskripsi baru
+                previous_balance: parseSafeNumber(activeShift.app_balances[toKey]),
+                new_balance: parseSafeNumber(activeShift.app_balances[toKey]) + numericAmount
+            };
+            
+            const [fromResult, toResult] = await Promise.all([
+                logAppBalanceUpdateAPI(fromLog),
+                logAppBalanceUpdateAPI(toLog)
+            ]);
+        
+            if (!fromResult.success || !toResult.success) {
+                return { success: false, error: "Gagal mencatat log transfer saldo." };
+            }
+            
+            const newAppBalances = { 
+                ...activeShift.app_balances, 
+                [fromKey]: fromLog.new_balance,
+                [toKey]: toLog.new_balance
+            };
+            
+            return await updateActiveShift({ ...activeShift, app_balances: newAppBalances });
+        };
+
         const getActiveShiftForCurrentUser = () => { if (user && user.role === 'worker') { return (Array.isArray(activeShifts) && activeShifts.find(shift => shift.username === user.username)) || null; } return null; };
         const activeShift = getActiveShiftForCurrentUser();
         
@@ -249,7 +298,7 @@ export const DataProvider = ({ children }) => {
             
             addWorker, removeWorker, updateWorkerPassword, endShift, removeShiftArchive, addAdminFeeRule, updateAdminFeeRule, removeAdminFeeRule, addProduct, updateProduct, removeProduct, addVoucher, updateVoucher, deleteVoucher, updateManualAppBalance, 
             
-            fetchAccessories, fetchInventoryLogs, addAccessory, updateAccessory, removeAccessory, transferStock, addStockToWarehouse, sellAccessoryAndUpdateShift, sellAccessoryAndUpdateShift, 
+            fetchAccessories, fetchInventoryLogs, addAccessory, updateAccessory, removeAccessory, transferStock, addStockToWarehouse, sellAccessoryAndUpdateShift, sellAccessoryAndUpdateShift, transferAppBalance,
         };
     }, [ user, workers, activeShifts, shiftArchives, adminFeeRules, products, vouchers, accessories, inventoryLogs, loadingData, currentUserAppBalanceLogs, accessories, inventoryLogs, stockRequests, ]);
 

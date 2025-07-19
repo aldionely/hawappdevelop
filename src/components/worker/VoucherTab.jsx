@@ -65,6 +65,8 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
         <div className="p-3 border rounded-lg bg-white flex justify-between items-center">
             <div>
                 <p className="font-semibold text-sm">{voucher.name}</p>
+                {/* Menambahkan tampilan harga jual */}
+                <p className="text-xs text-muted-foreground">Harga: Rp {voucher.sell_price.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">{voucher.category}</p>
             </div>
             <div className="flex items-center space-x-2">
@@ -144,7 +146,7 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
     const { vouchers, updateVoucherStock, sellVoucherAndUpdateShift } = useData();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     // Perbaikan nama kategori "UNLIMITED" menjadi "UNL" agar konsisten
     const categoryOrder = [
         "VCR SMARTFREN HARIAN", "VCR SMARTFREN UNL", "VCR INDOSAT UNL",
@@ -198,7 +200,7 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
              toast({ variant: 'destructive', title: 'Gagal Menjual', description: result.error?.message || 'Terjadi kesalahan.' });
         }
     };
-    
+
     const handleAddStock = async (voucherId, quantity, description) => {
         const result = await updateVoucherStock(voucherId, quantity, 'PENAMBAHAN', description);
         if (result.success) {
@@ -207,11 +209,11 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
             toast({ variant: 'destructive', title: 'Gagal', description: result.error?.message || 'Gagal memperbarui stok.' });
         }
     };
-    
+
     const handleDownloadFullReport = () => {
         downloadVoucherStockReport(activeShiftData, vouchers, false);
     };
-    
+
     // --- 1. INI ADALAH DEFINISI FUNGSI YANG HILANG ---
     const handleDownloadCategory = (categoryName, vouchersInCategory) => {
         downloadCategoryVoucherReport(activeShiftData, vouchersInCategory, categoryName, false);
@@ -248,9 +250,9 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
                                     <div className="flex justify-between items-center mb-2 sticky top-0 bg-gradient-to-b from-purple-100 to-transparent py-1">
                                         <h3 className="font-bold text-md">{category}</h3>
                                         {/* 2. TOMBOL INI SEKARANG BISA MEMANGGIL FUNGSI DI ATAS */}
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             className="h-7 w-7 text-gray-500 hover:text-blue-600"
                                             onClick={() => handleDownloadCategory(category, groupedVouchers[category])}
                                             title={`Download laporan untuk ${category}`}
@@ -262,10 +264,10 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
                                         {groupedVouchers[category]
                                             .sort(sortVoucherItems)
                                             .map(voucher => (
-                                            <VoucherItem 
-                                                key={voucher.id} 
-                                                voucher={voucher} 
-                                                onSell={handleSellVoucher} 
+                                            <VoucherItem
+                                                key={voucher.id}
+                                                voucher={voucher}
+                                                onSell={handleSellVoucher}
                                                 onAddStock={(qty, desc) => handleAddStock(voucher.id, qty, desc)}
                                             />
                                         ))}

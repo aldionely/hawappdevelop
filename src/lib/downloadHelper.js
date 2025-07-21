@@ -1,15 +1,155 @@
-// src/lib/downloadHelper.js
-
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { html_beautify } from 'js-beautify';
 import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
 
-// Fungsi lain tidak berubah, kita hanya fokus pada downloadVoucherStockReport
+// --- FUNGSI CERDAS UNTUK MENGHITUNG UANG HARIAN ---
+const processAllowancesForShifts = (shifts, allowances) => {
+  const allowanceMap = new Map((allowances || []).map(a => [a.worker_username.toUpperCase(), a.amount]));
+  const processedShifts = new Map();
+  const paidAllowanceTracker = new Set(); 
+
+  const sortedShifts = shifts.slice().sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+  for (const shift of sortedShifts) {
+      const date = new Date(shift.startTime);
+      const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const trackerKey = `${shift.username.toUpperCase()}-${dateKey}`;
+
+      let dailyAllowance = 0;
+      if (!paidAllowanceTracker.has(trackerKey)) {
+          dailyAllowance = allowanceMap.get(shift.username.toUpperCase()) || 0;
+          if (dailyAllowance > 0) {
+              paidAllowanceTracker.add(trackerKey);
+          }
+      }
+      
+      const finalFee = (shift.totalAdminFee || 0) - dailyAllowance;
+      processedShifts.set(shift.id, { ...shift, calculatedAllowance: dailyAllowance, finalFee });
+  }
+  
+  return shifts.map(s => processedShifts.get(s.id) || s);
+};
+
 
 const formatCurrency = (amount) => `Rp ${(amount || 0).toLocaleString()}`;
-const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short', hour12: false }) : '-';
-const formatTime = (dateString) => dateString ? new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
 
-const formatAppBalancesForReport = (balances) => {
+// --- FUNGSI LAPORAN ADMIN YANG DIPERBARUI TOTAL ---
+export const downloadLocationAdminReport = (shiftsForLocation, location, dateRange, allowances) => {
+  if (!shiftsForLocation || shiftsForLocation.length === 0) {
+      alert("Tidak ada data untuk diunduh.");
+      return;
+  }
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  
+  // Gunakan fungsi "pintar" di awal dengan data allowances dari parameter
+  const processedShifts = processAllowancesForShifts(shiftsForLocation, allowances);
+
+  // --- HALAMAN 1: RINGKASAN ---
+  doc.setFontSize(18);
+  doc.text(`Rincian Total Admin - ${location}`, pageWidth / 2, 20, { align: 'center' });
+  doc.setFontSize(12);
+  doc.text(dateRange, pageWidth / 2, 28, { align: 'center' });
+
+  const groupedByDate = processedShifts.reduce((acc, shift) => {
+      const date = new Date(shift.startTime);
+      const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      if (!acc[dateKey]) {
+          acc[dateKey] = { total: 0, shifts: [] };
+      }
+      acc[dateKey].total += shift.finalFee;
+      acc[dateKey].shifts.push(shift);
+      return acc;
+  }, {});
+
+  let grandTotal = 0;
+  const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(a) - new Date(b));
+
+  const summaryBody = sortedDates.map(dateKey => {
+      const total = groupedByDate[dateKey].total;
+      grandTotal += total;
+      const formattedDate = new Date(dateKey.replace(/-/g, '/')).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      return [formattedDate, formatCurrency(total)];
+  });
+
+  autoTable(doc, {
+      startY: 40,
+      head: [['TANGGAL', 'TOTAL FINAL ADMIN']],
+      body: summaryBody,
+      foot: [[
+          { content: 'GRAND TOTAL', styles: { halign: 'center' } },
+          { content: formatCurrency(grandTotal), styles: { halign: 'center' } }
+      ]],
+      theme: 'grid',
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+      footStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 14 },
+  });
+
+  // --- HALAMAN 2 DAN SETERUSNYA: RINCIAN ---
+  doc.addPage();
+  doc.setFontSize(18);
+  doc.text(`Rincian Shift - ${location}`, pageWidth / 2, 20, { align: 'center' });
+  let finalY = 30;
+
+  sortedDates.forEach(dateKey => {
+      const { shifts, total } = groupedByDate[dateKey];
+      const formattedDateTitle = new Date(dateKey.replace(/-/g, '/')).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+      const tableBody = shifts.map(shift => {
+          const timeRange = `${new Date(shift.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'})} - ${shift.endTime ? new Date(shift.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : '-'}`;
+          return [
+              shift.workerName,
+              timeRange,
+              formatCurrency(shift.totalAdminFee || 0),
+              formatCurrency(shift.calculatedAllowance),
+              formatCurrency(shift.finalFee)
+          ];
+      });
+      
+      const totalRow = [
+          { content: '',},
+          { content: '',},
+          { content: 'TOTAL', styles: { halign: 'center', fontStyle: 'bold', fontSize: 15 } },
+          { content: '',},
+          { content: formatCurrency(total), styles: { fontStyle: 'bold', fontSize: 15, halign: 'center' } }
+        ];
+
+      const tableHeight = (tableBody.length + 2) * 8 + 15;
+      if (finalY + tableHeight > pageHeight - margin) {
+          doc.addPage();
+          finalY = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text(formattedDateTitle, 14, finalY);
+      finalY += 8;
+
+      autoTable(doc, {
+          startY: finalY,
+          head: [['NAMA SHIFT', 'WAKTU SHIFT', 'TOTAL ADMIN', 'UANG HARIAN', 'TOTAL FINAL']],
+          body: tableBody,
+          foot: [totalRow],
+          theme: 'striped',
+          headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+          bodyStyles: { halign: 'center' },
+          footStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: 'bold' },
+      });
+
+      finalY = doc.lastAutoTable.finalY + 15;
+  });
+
+  const fileName = `Laporan_Admin_${location}_${dateRange.replace(/\s/g, '_')}.pdf`;
+  doc.save(fileName);
+};
+
+
+// ... (Sisa file tidak perlu diubah) ...
+export const formatAppBalancesForReport = (balances) => {
   if (!balances || Object.keys(balances).length === 0) {
     return '  Tidak ada data saldo aplikasi.\n';
   }
@@ -138,7 +278,6 @@ ${formatAppBalancesForReport(shiftData.app_balances)}
 };
 
 
-// --- FUNGSI INI TELAH DIPERBARUI ---
 export const downloadVoucherStockReport = (shift, allVouchers, isArchived) => {
   if (!shift || !allVouchers || !shift.initial_voucher_stock) {
     alert("Data laporan voucher tidak lengkap.");
@@ -173,13 +312,10 @@ export const downloadVoucherStockReport = (shift, allVouchers, isArchived) => {
     return a.name.localeCompare(b.name, undefined, { numeric: true });
   };
 
-  // --- PERUBAHAN DI SINI: Fungsi pemformatan nama yang lebih canggih ---
   const formatItemName = (name) => {
-      // Daftar semua kemungkinan awalan yang ingin dihapus
       const prefixesToRemove = ['VCR', 'SF', 'ISAT', 'TRI', 'TSEL', 'XL', 'AXIS', 'SMARTFREN', 'BYU', 'KARTU' , 'SMART' ];
       let processedName = name.trim();
       
-      // Hapus awalan dari nama
       prefixesToRemove.forEach(prefix => {
           if (processedName.toUpperCase().startsWith(prefix)) {
               processedName = processedName.substring(prefix.length).trim();
@@ -214,7 +350,6 @@ export const downloadVoucherStockReport = (shift, allVouchers, isArchived) => {
     
     const itemsInCategory = categorizedVouchers[category];
     
-    // --- PERUBAHAN DI SINI: Menghitung padding dinamis ---
     const formattedNames = itemsInCategory.map(voucher => formatItemName(voucher.name));
     const maxLength = Math.max(...formattedNames.map(name => name.length));
 
@@ -228,7 +363,6 @@ export const downloadVoucherStockReport = (shift, allVouchers, isArchived) => {
         const sold = initialStock - finalStock;
         
         const itemName = formatItemName(voucher.name);
-        // Menggunakan padding dinamis (maxLength + 2 agar ada sedikit spasi)
         reportContent += `${itemName.padEnd(maxLength + 2, ' ')}: ${initialStock} -> (-${sold}) -> ${finalStock}\n`;
     });
   });
@@ -251,7 +385,6 @@ export const downloadCategoryVoucherReport = (shift, vouchersForCategory, catego
     return;
   }
 
-  // Gunakan kembali fungsi pengurutan dan pemformatan yang sudah ada
   const sortVoucherItems = (a, b) => {
     const regex = /([\d.,]+)\s*GB/i;
     const matchA = a.name.match(regex);
@@ -283,7 +416,6 @@ export const downloadCategoryVoucherReport = (shift, vouchersForCategory, catego
       return processedName;
   };
 
-  // -- Membangun konten laporan --
   let reportContent = `=== ${categoryName} ===\n\n`;
   
   const maxLength = Math.max(...vouchersForCategory.map(voucher => formatItemName(voucher.name).length));

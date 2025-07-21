@@ -12,13 +12,13 @@ import { AdminFeeRulesTab } from "@/components/admin/tabs/AdminFeeRulesTab";
 import { ProductsTab } from "@/components/admin/tabs/ProductsTab";
 import { VoucherTab as AdminVoucherTab } from "@/components/admin/tabs/VoucherTab";
 import { AdminAccessoriesTab } from "@/components/admin/tabs/AccessoriesTab";
-
+import { DashboardTab } from "@/components/admin/tabs/DashboardTab"; // Import komponen baru
 
 const AdminDashboard = () => {
   const { user, logout, loading: authLoading } = useAuth();
   const { loadingData, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories  } = useData();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = React.useState("users");
+  const [activeTab, setActiveTab] = React.useState("dashboard"); // Set dashboard sebagai default
 
   React.useEffect(() => {
     if (!authLoading && (!user || user.role !== "admin")) {
@@ -30,6 +30,7 @@ const AdminDashboard = () => {
     if(user && user.role === "admin"){
       const fetchDataForTab = () => {
         switch(activeTab) {
+          case "dashboard": fetchShiftArchives(); break; // Ambil data untuk dashboard
           case "users": fetchWorkers(); break;
           case "active": fetchActiveShifts(); break;
           case "archives": Promise.all([fetchWorkers(), fetchShiftArchives()]); break;
@@ -42,7 +43,7 @@ const AdminDashboard = () => {
       };
       fetchDataForTab();
     }
-  }, [activeTab, user, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers]);
+  }, [activeTab, user, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories]);
 
   const handleLogout = () => {
     logout();
@@ -67,9 +68,10 @@ const AdminDashboard = () => {
           <Button onClick={handleLogout} variant="outline" size="sm">Logout</Button>
         </div>
 
-        <Tabs defaultValue="users" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="overflow-x-auto pb-2">
-            <TabsList className="grid w-full grid-cols-7 mb-4 text-xs sm:text-sm min-w-[700px]">
+            <TabsList className="grid w-full grid-cols-8 mb-4 text-xs sm:text-sm min-w-[800px]">
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="users">User</TabsTrigger>
               <TabsTrigger value="active">Aktivitas</TabsTrigger>
               <TabsTrigger value="archives">Arsip Shift</TabsTrigger>
@@ -79,7 +81,8 @@ const AdminDashboard = () => {
               <TabsTrigger value="accessories">Aksesoris</TabsTrigger>
             </TabsList>
           </div>
-
+          
+          <TabsContent value="dashboard"><DashboardTab /></TabsContent>
           <TabsContent value="users"><UserTab /></TabsContent>
           <TabsContent value="active"><ActivityTab /></TabsContent>
           <TabsContent value="archives"><ArchiveTab /></TabsContent>

@@ -26,6 +26,13 @@ const ArchivedShiftItem = React.memo(({ shift, onShowReport, onShowBalanceHistor
   const totalAdminFee = shift.totalAdminFee || 0;
   const appBalances = shift.app_balances;
 
+
+
+  const netAdminFee = shift.totalAdminFee || 0;
+  const uangMakan = shift.uang_makan || 0;
+  const grossAdminFee = netAdminFee + uangMakan;
+  // --- AKHIR PERUBAHAN ---
+
   return (
     <div className="p-4 border rounded-lg bg-gray-50 mb-3 shadow-sm">
       <div className="flex justify-between items-start mb-3">
@@ -55,8 +62,16 @@ const ArchivedShiftItem = React.memo(({ shift, onShowReport, onShowBalanceHistor
           <div className="p-2 bg-red-100 rounded-md"><p>Uang Keluar</p><p className="font-bold text-sm text-red-700">Rp {totalOut.toLocaleString()}</p></div>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-        <div className="p-2 bg-purple-100 rounded-md"><p>Total Admin</p><p className="font-bold text-sm text-purple-700">Rp {totalAdminFee.toLocaleString()}</p></div>
-          <div className="p-2 bg-white rounded-md"><p>Kas Akhir Aktual</p><p className="font-bold text-sm">Rp {kasAkhir.toLocaleString()}</p></div>
+        {/* --- PERUBAHAN DI SINI: Menampilkan rincian admin --- */}
+        <div className="p-2 bg-purple-100 rounded-md">
+            <p>Admin Kotor</p>
+            <p className="font-bold text-sm text-purple-700">Rp {grossAdminFee.toLocaleString()}</p>
+        </div>
+        <div className="p-2 bg-orange-100 rounded-md">
+            <p>Total Final Admin</p>
+            <p className="font-bold text-sm text-orange-700">Rp {netAdminFee.toLocaleString()}</p>
+        </div>
+        {/* --- AKHIR PERUBAHAN --- */}
       </div>
       <div className={`mt-2 p-2 rounded-md text-sm font-semibold ${selisih === 0 ? 'bg-green-100 text-green-800' : selisih > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
         Selisih Kas: Rp {Math.abs(selisih).toLocaleString()} {selisih === 0 ? '(Sesuai)' : selisih > 0 ? '(Lebih)' : '(Kurang)'}

@@ -1,41 +1,27 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { useToast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { formatNumberInput, parseFormattedNumber } from '@/lib/utils';
-import { Settings, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { downloadLocationAdminReport } from '@/lib/downloadHelper';
 
-const processAllowancesForShifts = (shifts, allowances) => {
-    const allowanceMap = new Map((allowances || []).map(a => [a.worker_username.toUpperCase(), a.amount]));
-    const processedShifts = new Map();
-    const paidAllowanceTracker = new Set(); 
-
-    const sortedShifts = shifts.slice().sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
-    for (const shift of sortedShifts) {
-        const date = new Date(shift.startTime);
-        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        const trackerKey = `${shift.username.toUpperCase()}-${dateKey}`;
-
-        let dailyAllowance = 0;
-        if (!paidAllowanceTracker.has(trackerKey)) {
-            dailyAllowance = allowanceMap.get(shift.username.toUpperCase()) || 0;
-            if (dailyAllowance > 0) {
-                paidAllowanceTracker.add(trackerKey);
-            }
-        }
+// --- PERUBAHAN 1: Logika diubah untuk menghitung admin kotor ---
+const processShiftsData = (shifts) => {
+    return shifts.map(shift => {
+        // `totalAdminFee` dari database sekarang adalah nilai BERSIH.
+        const netAdminFee = shift.totalAdminFee || 0;
+        const calculatedAllowance = shift.uang_makan || 0;
         
-        const finalFee = (shift.totalAdminFee || 0) - dailyAllowance;
-        processedShifts.set(shift.id, { ...shift, calculatedAllowance: dailyAllowance, finalFee });
-    }
-    
-    return shifts.map(s => processedShifts.get(s.id) || s);
+        // Hitung kembali admin KOTOR dengan menambahkan uang makan.
+        const grossAdminFee = netAdminFee + calculatedAllowance;
+        
+        // `finalFee` adalah nilai bersihnya.
+        const finalFee = netAdminFee;
+
+        return { ...shift, calculatedAllowance, finalFee, grossAdminFee };
+    });
 };
 
 const ShiftAdminItem = ({ shift }) => {
@@ -47,7 +33,8 @@ const ShiftAdminItem = ({ shift }) => {
                     <p className="text-xs text-gray-500">{new Date(shift.startTime).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                 </div>
                 <div>
-                    <p className="font-semibold text-gray-700 text-right">Rp {(shift.totalAdminFee || 0).toLocaleString()}</p>
+                    {/* --- PERUBAHAN 2: Tampilkan admin KOTOR di sini --- */}
+                    <p className="font-semibold text-gray-700 text-right">Rp {(shift.grossAdminFee || 0).toLocaleString()}</p>
                     <p className="text-xs text-red-500 text-right">(- Rp {(shift.calculatedAllowance || 0).toLocaleString()})</p>
                 </div>
             </div>
@@ -59,53 +46,7 @@ const ShiftAdminItem = ({ shift }) => {
     );
 };
 
-const DailyAllowanceManager = ({ workers, currentAllowances, onSave }) => {
-    const [allowances, setAllowances] = useState({});
-    const [displayAllowances, setDisplayAllowances] = useState({});
-
-    useEffect(() => {
-        const initialAllowances = {};
-        const initialDisplay = {};
-        (currentAllowances || []).forEach(allowance => {
-            initialAllowances[allowance.worker_username.toUpperCase()] = allowance.amount;
-            initialDisplay[allowance.worker_username.toUpperCase()] = formatNumberInput(String(allowance.amount));
-        });
-        setAllowances(initialAllowances);
-        setDisplayAllowances(initialDisplay);
-    }, [currentAllowances]);
-
-    const handleAllowanceChange = (username, value) => {
-        const numericValue = parseFormattedNumber(value);
-        setAllowances(prev => ({ ...prev, [username.toUpperCase()]: numericValue }));
-        setDisplayAllowances(prev => ({ ...prev, [username.toUpperCase()]: formatNumberInput(value) }));
-    };
-
-    return (
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Pengaturan Uang Harian</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 py-4">
-                {workers.map(worker => (
-                    <div key={worker.id} className="grid grid-cols-3 items-center gap-4">
-                        <label className="font-medium">{worker.name} ({worker.username})</label>
-                        <Input
-                            type="text"
-                            placeholder="Jumlah (Rp)"
-                            value={displayAllowances[worker.username.toUpperCase()] || ''}
-                            onChange={(e) => handleAllowanceChange(worker.username, e.target.value)}
-                            className="col-span-2"
-                        />
-                    </div>
-                ))}
-            </div>
-            <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="outline">Batal</Button></DialogClose>
-                <DialogClose asChild><Button onClick={() => onSave(allowances)}>Simpan Pengaturan</Button></DialogClose>
-            </DialogFooter>
-        </DialogContent>
-    );
-};
+// ... sisa komponen (LocationAdminStats, AdminTransactionTab) tidak ada perubahan logika, hanya mengikuti dari atas ...
 
 const LocationAdminStats = ({ shifts, location, onDownload }) => {
     const [openAccordion, setOpenAccordion] = useState();
@@ -163,8 +104,7 @@ const LocationAdminStats = ({ shifts, location, onDownload }) => {
 
 
 export const AdminTransactionTab = () => {
-  const { shiftArchives, workers, dailyAllowances, updateAllowance } = useData();
-  const { toast } = useToast();
+  const { shiftArchives, workers } = useData();
 
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -214,23 +154,15 @@ export const AdminTransactionTab = () => {
   const handleMonthChange = (month) => { setSelectedMonth(month); setSelectedDate('ALL'); }
 
   const processedShifts = useMemo(() => {
-      if (!filteredShifts || !dailyAllowances) return [];
-      return processAllowancesForShifts(filteredShifts, dailyAllowances);
-  }, [filteredShifts, dailyAllowances]);
+      if (!filteredShifts) return [];
+      return processShiftsData(filteredShifts);
+  }, [filteredShifts]);
   
   const grandTotalFinalAdminFee = useMemo(() => {
     return processedShifts.reduce((acc, shift) => acc + (shift.finalFee || 0), 0);
   }, [processedShifts]);
   
   const isFilterActive = selectedYear && selectedMonth;
-
-  const handleSaveAllowances = async (allowancesToSave) => {
-    for (const username in allowancesToSave) {
-        const amount = parseFloat(allowancesToSave[username]) || 0;
-        await updateAllowance(username.toUpperCase(), amount);
-    }
-    toast({ title: "Berhasil", description: "Pengaturan uang harian telah disimpan." });
-  };
   
   const getDateRangeText = () => {
     if (!isFilterActive) return "Semua Waktu";
@@ -249,15 +181,6 @@ export const AdminTransactionTab = () => {
     <div className="space-y-4">
         <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold">Admin Transaksi</h2>
-            <Dialog>
-                <DialogTrigger asChild>
-                    <Button variant="outline">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Pengaturan
-                    </Button>
-                </DialogTrigger>
-                <DailyAllowanceManager workers={workers} currentAllowances={dailyAllowances} onSave={handleSaveAllowances} />
-            </Dialog>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-2 border rounded-md">
@@ -298,14 +221,14 @@ export const AdminTransactionTab = () => {
                         <LocationAdminStats 
                             shifts={processedShifts.filter(s => s.lokasi === 'PIPITAN')} 
                             location="PIPITAN" 
-                            onDownload={() => downloadLocationAdminReport(processedShifts.filter(s => s.lokasi === 'PIPITAN'), 'PIPITAN', getDateRangeText(), dailyAllowances)}
+                            onDownload={() => downloadLocationAdminReport(processedShifts.filter(s => s.lokasi === 'PIPITAN'), 'PIPITAN', getDateRangeText())}
                         />
                     </TabsContent>
                     <TabsContent value="sadik">
                         <LocationAdminStats 
                             shifts={processedShifts.filter(s => s.lokasi === 'SADIK')} 
                             location="SADIK"
-                            onDownload={() => downloadLocationAdminReport(processedShifts.filter(s => s.lokasi === 'SADIK'), 'SADIK', getDateRangeText(), dailyAllowances)}
+                            onDownload={() => downloadLocationAdminReport(processedShifts.filter(s => s.lokasi === 'SADIK'), 'SADIK', getDateRangeText())}
                         />
                     </TabsContent>
                 </Tabs>

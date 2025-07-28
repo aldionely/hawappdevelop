@@ -18,16 +18,28 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
   const [actualKasAkhir, setActualKasAkhir] = useState("");
   const [displayActualKasAkhir, setDisplayActualKasAkhir] = useState("");
   const [notes, setNotes] = useState("");
+  const [uangMakan, setUangMakan] = useState("");
+  const [displayUangMakan, setDisplayUangMakan] = useState("");
   const { toast } = useToast();
 
-  const expectedBalance = (shiftData.kasAwal || 0) + (shiftData.totalIn || 0) - (shiftData.totalOut || 0);
-  const selisih = parseFormattedNumber(displayActualKasAkhir) - expectedBalance;
+  const baseExpectedBalance = (shiftData.kasAwal || 0) + (shiftData.totalIn || 0) - (shiftData.totalOut || 0);
+  const numericUangMakan = parseFloat(parseFormattedNumber(uangMakan)) || 0;
+  const finalExpectedBalance = baseExpectedBalance - numericUangMakan;
+  const selisih = parseFormattedNumber(displayActualKasAkhir) - finalExpectedBalance;
+
+  const totalAdminFee = shiftData.totalAdminFee || 0;
+  const finalAdminFee = totalAdminFee - numericUangMakan;
 
   const handleKasAkhirChange = (e) => {
     const value = e.target.value;
-    const numericValue = parseFormattedNumber(value);
-    setActualKasAkhir(numericValue);
+    setActualKasAkhir(parseFormattedNumber(value));
     setDisplayActualKasAkhir(formatNumberInput(value));
+  };
+  
+  const handleUangMakanChange = (e) => {
+    const value = e.target.value;
+    setUangMakan(parseFormattedNumber(value));
+    setDisplayUangMakan(formatNumberInput(value));
   };
 
   const handleConfirm = () => {
@@ -40,11 +52,8 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
       });
       return;
     }
-    onConfirmEndShift(numericKasAkhir, notes);
+    onConfirmEndShift(numericKasAkhir, notes, numericUangMakan, finalAdminFee);
     onOpenChange(false); 
-    setActualKasAkhir("");
-    setDisplayActualKasAkhir("");
-    setNotes("");
   };
 
   useEffect(() => {
@@ -52,6 +61,8 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
         setActualKasAkhir("");
         setDisplayActualKasAkhir("");
         setNotes(shiftData.notes || "");
+        setUangMakan("");
+        setDisplayUangMakan("");
     }
   }, [isOpen, shiftData.notes]);
 
@@ -66,8 +77,20 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
+          
+          {/* --- BAGIAN ATAS --- */}
+          <Input
+            type="text"
+            inputMode="decimal"
+            placeholder="Uang Makan (Rp)"
+            value={displayUangMakan}
+            onChange={handleUangMakanChange}
+            className="text-xs sm:text-sm"
+          />
+
+          {/* --- BAGIAN TENGAH --- */}
           <div className="p-2 bg-gray-100 rounded-md text-xs">
-            <p>Total Uang Seharusnya: Rp {expectedBalance.toLocaleString()}</p>
+            <p>Total Uang Seharusnya di Tangan: Rp {finalExpectedBalance.toLocaleString()}</p>
           </div>
           <Input
             type="text"
@@ -80,7 +103,7 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
           />
           {displayActualKasAkhir && !isNaN(selisih) && (
             <div className={`p-2 rounded-md text-xs ${selisih === 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              Selisih: Rp {Math.abs(selisih).toLocaleString()} {selisih === 0 ? '(Sesuai)' : selisih > 0 ? '(Lebih)' : '(Kurang)'}
+              Selisih Kas: Rp {Math.abs(selisih).toLocaleString()} {selisih === 0 ? '(Sesuai)' : selisih > 0 ? '(Lebih)' : '(Kurang)'}
             </div>
           )}
           <Textarea
@@ -89,6 +112,24 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
             onChange={(e) => setNotes(e.target.value)}
             className="text-xs sm:text-sm"
           />
+          
+          {/* --- BAGIAN PALING BAWAH --- */}
+          <div className="space-y-2 pt-3 mt-3 border-t">
+            <h4 className="text-sm font-semibold text-center">Rincian Admin</h4>
+            <div className="flex justify-between items-center text-xs">
+              <span>Total Admin dari Transaksi:</span>
+              <span className="font-medium">Rp {totalAdminFee.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span>Potongan Uang Makan:</span>
+              <span className="font-medium text-red-600">- Rp {numericUangMakan.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 bg-blue-50 rounded-md">
+              <span className="font-bold text-sm text-blue-800">Total Final Admin:</span>
+              <span className="font-bold text-lg text-blue-800">Rp {finalAdminFee.toLocaleString()}</span>
+            </div>
+          </div>
+          
         </div>
         <DialogFooter>
           <DialogClose asChild>

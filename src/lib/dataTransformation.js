@@ -49,5 +49,7 @@ export const transformShiftData = (shift) => {
     endTime: shift.endtime,
     expectedBalance: typeof shift.expectedbalance === 'number' ? shift.expectedbalance : undefined,
     selisih: typeof shift.selisih === 'number' ? shift.selisih : undefined,
+    uang_makan: shift.uang_makan,
+    final_admin_fee: shift.final_admin_fee,
   };
 };

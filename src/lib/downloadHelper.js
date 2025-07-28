@@ -4,38 +4,19 @@ import { html_beautify } from 'js-beautify';
 import { appBalanceKeysAndNames } from '@/lib/shiftConstants';
 
 // --- FUNGSI CERDAS UNTUK MENGHITUNG UANG HARIAN ---
-const processAllowancesForShifts = (shifts, allowances) => {
-  const allowanceMap = new Map((allowances || []).map(a => [a.worker_username.toUpperCase(), a.amount]));
-  const processedShifts = new Map();
-  const paidAllowanceTracker = new Set(); 
-
-  const sortedShifts = shifts.slice().sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
-  for (const shift of sortedShifts) {
-      const date = new Date(shift.startTime);
-      const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      const trackerKey = `${shift.username.toUpperCase()}-${dateKey}`;
-
-      let dailyAllowance = 0;
-      if (!paidAllowanceTracker.has(trackerKey)) {
-          dailyAllowance = allowanceMap.get(shift.username.toUpperCase()) || 0;
-          if (dailyAllowance > 0) {
-              paidAllowanceTracker.add(trackerKey);
-          }
-      }
-      
-      const finalFee = (shift.totalAdminFee || 0) - dailyAllowance;
-      processedShifts.set(shift.id, { ...shift, calculatedAllowance: dailyAllowance, finalFee });
-  }
-  
-  return shifts.map(s => processedShifts.get(s.id) || s);
+const processShiftsForReport = (shifts) => {
+  return shifts.map(shift => {
+      const netAdminFee = shift.totalAdminFee || 0;
+      const calculatedAllowance = shift.uang_makan || 0;
+      const grossAdminFee = netAdminFee + calculatedAllowance;
+      const finalFee = netAdminFee;
+      return { ...shift, calculatedAllowance, finalFee, grossAdminFee };
+  });
 };
-
 
 const formatCurrency = (amount) => `Rp ${(amount || 0).toLocaleString()}`;
 
-// --- FUNGSI LAPORAN ADMIN YANG DIPERBARUI TOTAL ---
-export const downloadLocationAdminReport = (shiftsForLocation, location, dateRange, allowances) => {
+export const downloadLocationAdminReport = (shiftsForLocation, location, dateRange) => {
   if (!shiftsForLocation || shiftsForLocation.length === 0) {
       alert("Tidak ada data untuk diunduh.");
       return;
@@ -46,8 +27,7 @@ export const downloadLocationAdminReport = (shiftsForLocation, location, dateRan
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
   
-  // Gunakan fungsi "pintar" di awal dengan data allowances dari parameter
-  const processedShifts = processAllowancesForShifts(shiftsForLocation, allowances);
+  const processedShifts = processShiftsForReport(shiftsForLocation);
 
   // --- HALAMAN 1: RINGKASAN ---
   doc.setFontSize(18);
@@ -99,12 +79,13 @@ export const downloadLocationAdminReport = (shiftsForLocation, location, dateRan
       const { shifts, total } = groupedByDate[dateKey];
       const formattedDateTitle = new Date(dateKey.replace(/-/g, '/')).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+      // --- PERUBAHAN 2: Gunakan `grossAdminFee` untuk kolom 'TOTAL ADMIN' ---
       const tableBody = shifts.map(shift => {
           const timeRange = `${new Date(shift.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'})} - ${shift.endTime ? new Date(shift.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : '-'}`;
           return [
               shift.workerName,
               timeRange,
-              formatCurrency(shift.totalAdminFee || 0),
+              formatCurrency(shift.grossAdminFee || 0), // Menggunakan admin kotor
               formatCurrency(shift.calculatedAllowance),
               formatCurrency(shift.finalFee)
           ];
@@ -131,7 +112,7 @@ export const downloadLocationAdminReport = (shiftsForLocation, location, dateRan
 
       autoTable(doc, {
           startY: finalY,
-          head: [['NAMA SHIFT', 'WAKTU SHIFT', 'TOTAL ADMIN', 'UANG HARIAN', 'TOTAL FINAL']],
+          head: [['NAMA SHIFT', 'WAKTU SHIFT', 'TOTAL ADMIN', 'UANG MAKAN', 'TOTAL FINAL']],
           body: tableBody,
           foot: [totalRow],
           theme: 'striped',

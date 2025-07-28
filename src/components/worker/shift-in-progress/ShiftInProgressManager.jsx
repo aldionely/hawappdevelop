@@ -45,7 +45,7 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
       toast({
         variant: "destructive",
         title: "Gagal menyimpan perubahan",
-        description: result.error || "Terjadi kesalahan saat memperbarui shift.",
+        description: result.error?.message || "Terjadi kesalahan saat memperbarui shift.",
       });
       return false;
     }
@@ -59,7 +59,6 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
       transaction.type,
       transaction.saldoMasukAplikasi 
     );
-    // PERBAIKAN DI SINI: Kirim seluruh objek 'transaction'
     const productFeeDetails = calculateProductAdminFee(transaction, products);
     const transactionWithFees = { 
       ...transaction, 
@@ -87,7 +86,6 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
       editedTransaction.type,
       editedTransaction.saldoMasukAplikasi
     );
-    // PERBAIKAN DI SINI: Kirim seluruh objek 'editedTransaction'
     const productFeeDetails = calculateProductAdminFee(editedTransaction, products);
     const transactionWithFees = { 
         ...editedTransaction, 
@@ -117,8 +115,23 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
     }
   };
 
-  const handleEndShiftLogic = async (actualKasAkhir, notes) => {
-    const expectedBalance = (shiftData.kasAwal || 0) + (shiftData.totalIn || 0) - (shiftData.totalOut || 0);
+  const handleEndShiftLogic = async (actualKasAkhir, notes, uangMakan, finalAdminFee) => {
+    let finalTransactions = [...shiftData.transactions];
+
+    if (uangMakan > 0) {
+      finalTransactions.push({
+        id: `tx_um_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'out',
+        amount: uangMakan,
+        description: 'Uang Makan',
+        adminFee: 0,
+        productAdminFee: 0,
+      });
+    }
+
+    const newTotals = processTransactionTotals(finalTransactions);
+    const expectedBalance = (shiftData.kasAwal || 0) + (newTotals.totalIn || 0) - (newTotals.totalOut || 0);
     const selisih = parseFloat(actualKasAkhir) - expectedBalance;
 
     const locationVouchers = vouchers.filter(v => v.location === shiftData.lokasi);
@@ -129,11 +142,15 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
 
     const finalShiftData = {
       ...shiftData,
+      ...newTotals,
+      transactions: finalTransactions, 
       endTime: new Date().toISOString(),
       kasAkhir: parseFloat(actualKasAkhir),
       expectedBalance,
       selisih,
       notes: notes || "",
+      uang_makan: uangMakan,
+      final_admin_fee: finalAdminFee,
       app_balances: shiftData.app_balances,
       initial_app_balances: shiftData.initial_app_balances,
       initial_voucher_stock: shiftData.initial_voucher_stock || {},
@@ -152,7 +169,7 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
        toast({
         variant: "destructive",
         title: "Gagal mengakhiri shift",
-        description: result.error || "Terjadi kesalahan saat menyimpan data akhir shift.",
+        description: result.error?.message || "Terjadi kesalahan saat menyimpan data akhir shift.",
       });
     }
   };

@@ -61,11 +61,15 @@ export const endShiftAPI = async (shiftData, ensureValidAppBalancesFn, transform
       expectedbalance: typeof shiftData.expectedBalance === 'number' ? shiftData.expectedBalance : 0,
       selisih: typeof shiftData.selisih === 'number' ? shiftData.selisih : 0,
       notes: shiftData.notes,
-      totaladminfee: typeof shiftData.totalAdminFee === 'number' ? shiftData.totalAdminFee : 0,
+      // --- PERUBAHAN DI SINI ---
+      // Menyimpan hasil kalkulasi (Total Admin - Uang Makan) ke kolom 'totaladminfee'
+      totaladminfee: typeof shiftData.final_admin_fee === 'number' ? shiftData.final_admin_fee : 0,
+      uang_makan: typeof shiftData.uang_makan === 'number' ? shiftData.uang_makan : 0,
+      // --- AKHIR PERUBAHAN ---
       app_balances: ensureValidAppBalancesFn(shiftData.app_balances),
       initial_app_balances: ensureValidAppBalancesFn(shiftData.initial_app_balances),
       initial_voucher_stock: shiftData.initial_voucher_stock || null,
-      final_voucher_stock: shiftData.final_voucher_stock || null
+      final_voucher_stock: shiftData.final_voucher_stock || null,
   };
 
   const { data, error: insertError } = await supabase.from('shift_archives').insert([archivePayload]).select();

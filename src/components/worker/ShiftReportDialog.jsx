@@ -41,6 +41,12 @@ export const ShiftReportDialog = ({ shift, isOpen, onOpenChange, showDownloadBut
     downloadShiftReport(shift);
   };
 
+  // --- PERUBAHAN DI SINI: Kalkulasi Admin Kotor ---
+  const netAdminFee = shift.totalAdminFee || shift.totaladminfee || 0;
+  const uangMakan = shift.uang_makan || 0;
+  const grossAdminFee = netAdminFee + uangMakan;
+  // --- AKHIR PERUBAHAN ---
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] md:max-w-[500px] max-h-[90vh] flex flex-col">
@@ -58,7 +64,18 @@ export const ShiftReportDialog = ({ shift, isOpen, onOpenChange, showDownloadBut
             <div>Kas Awal:</div><div className="font-semibold text-right">Rp {(shift.kasAwal || shift.kasawal || 0).toLocaleString()}</div>
             <div>Total Uang Masuk:</div><div className="font-semibold text-right text-green-600">Rp {(shift.totalIn || shift.totalin || 0).toLocaleString()}</div>
             <div>Total Uang Keluar:</div><div className="font-semibold text-right text-red-600">Rp {(shift.totalOut || shift.totalout || 0).toLocaleString()}</div>
-            <div>Total Admin Transaksi:</div><div className="font-semibold text-right text-purple-600">Rp {(shift.totalAdminFee || shift.totaladminfee || 0).toLocaleString()}</div>
+            
+            {(uangMakan > 0) && (
+              <React.Fragment>
+                <div>Uang Makan:</div><div className="font-semibold text-right text-red-600">Rp {uangMakan.toLocaleString()}</div>
+              </React.Fragment>
+            )}
+
+            {/* --- PERUBAHAN DI SINI: Menampilkan Rincian Admin --- */}
+            <div>Admin Kotor:</div><div className="font-semibold text-right text-purple-600">Rp {grossAdminFee.toLocaleString()}</div>
+            <div>Total Final Admin:</div><div className="font-semibold text-right text-purple-600">Rp {netAdminFee.toLocaleString()}</div>
+            {/* --- AKHIR PERUBAHAN --- */}
+            
             <div>Uang Transaksi:</div><div className="font-semibold text-right text-sky-600">Rp {(shift.uangTransaksi || shift.uangtransaksi || 0).toLocaleString()}</div>
           </div>
           <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-2 bg-gray-50 rounded">
@@ -73,6 +90,14 @@ export const ShiftReportDialog = ({ shift, isOpen, onOpenChange, showDownloadBut
             <div>Jumlah Transaksi:</div><div className="font-semibold text-right">{shift.transactions ? shift.transactions.length : 0}</div>
           </div>
           <AppBalancesReportDisplay balances={shift.app_balances} />
+          
+          {shift.informasi_admin && (
+            <div className="pt-2">
+              <h4 className="font-semibold mb-1">Informasi untuk Admin:</h4>
+              <p className="whitespace-pre-wrap p-2 bg-yellow-50 rounded text-yellow-800">{shift.informasi_admin}</p>
+            </div>
+          )}
+
           {shift.notes && (
             <div className="pt-2">
               <h4 className="font-semibold mb-1">Catatan Akhir Shift:</h4>

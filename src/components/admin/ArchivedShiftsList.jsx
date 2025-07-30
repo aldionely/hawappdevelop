@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronDown, Trash2, Eye, FileText, Download, Ticket, ListChecks } from 'lucide-react';
+import { Trash2, Eye, FileText, Download, Ticket, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -9,29 +9,41 @@ import { useToast } from "@/components/ui/use-toast";
 import { TransactionHistoryDialog } from '@/components/shared/TransactionHistoryDialog';
 import { ShiftReportDialog } from '@/components/worker/ShiftReportDialog';
 import { BalanceHistoryDialog } from '@/components/shared/BalanceHistoryDialog';
-import { AppBalancesDisplay } from '@/components/worker/AppBalancesDisplay';
 import { downloadTransactions, downloadVoucherStockReport } from '@/lib/downloadHelper';
 import { useData } from '@/contexts/DataContext';
 import { formatDateTime } from '@/lib/utils';
+import { calculateProductAdminFee } from '@/lib/productAndBalanceHelper'; // Import helper
 
-// --- PERUBAHAN 1: Buat ArchivedShiftItem menjadi komponen 'bodoh' ---
-// Ia tidak lagi memiliki state sendiri, hanya menerima data dan fungsi dari props.
-const ArchivedShiftItem = React.memo(({ shift, onShowReport, onShowBalanceHistory, onShowTransactions, onDownloadVoucher, onDelete }) => {
+const ArchivedShiftItem = React.memo(({ shift, products, onShowReport, onShowBalanceHistory, onShowTransactions, onDownloadVoucher, onDelete }) => {
   const selisih = shift.selisih || 0;
-  const uangTransaksi = shift.uangTransaksi || 0;
   const kasAwal = shift.kasAwal || 0;
   const kasAkhir = shift.kasAkhir || 0;
   const totalIn = shift.totalIn || 0;
   const totalOut = shift.totalOut || 0;
-  const totalAdminFee = shift.totalAdminFee || 0;
-  const appBalances = shift.app_balances;
-
-
-
   const netAdminFee = shift.totalAdminFee || 0;
-  const uangMakan = shift.uang_makan || 0;
-  const grossAdminFee = netAdminFee + uangMakan;
-  // --- AKHIR PERUBAHAN ---
+
+  const totalInitialAppBalance = Object.values(shift.initial_app_balances || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
+  const totalFinalAppBalance = Object.values(shift.app_balances || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
+
+  const { totalAppIn, totalAppOut } = useMemo(() => {
+    let appIn = 0;
+    let appOut = 0;
+    (shift.transactions || []).forEach(tx => {
+        if (tx.type === 'out' && tx.saldoMasukAplikasi > 0) appIn += tx.saldoMasukAplikasi;
+        if (tx.type === 'in' && tx.saldoKeluarAplikasi > 0) appOut += tx.saldoKeluarAplikasi;
+        
+        const productDetails = calculateProductAdminFee(tx, products);
+        if (productDetails && productDetails.relatedAppKey) {
+            const specialKeys = ['BERKAT', 'RITA', 'ISIMPEL', 'SIDOMPUL', 'DIGIPOS'];
+            if (specialKeys.includes(productDetails.relatedAppKey.toUpperCase())) {
+                appOut += productDetails.costPrice || 0;
+            } else {
+                appOut += productDetails.fee > 0 ? productDetails.fee : 0;
+            }
+        }
+    });
+    return { totalAppIn: appIn, totalAppOut: appOut };
+  }, [shift.transactions, products]);
 
   return (
     <div className="p-4 border rounded-lg bg-gray-50 mb-3 shadow-sm">
@@ -55,36 +67,65 @@ const ArchivedShiftItem = React.memo(({ shift, onShowReport, onShowBalanceHistor
             </AlertDialog>
         </div>
       </div>
-       <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="p-2 bg-gray-100 rounded-md"><p>Kas Awal</p><p className="font-bold text-sm">Rp {kasAwal.toLocaleString()}</p></div>
-        <div className="p-2 bg-blue-100 rounded-md"><p>Uang Transaksi</p><p className="font-bold text-sm text-blue-700">Rp {uangTransaksi.toLocaleString()}</p></div>
-          <div className="p-2 bg-green-100 rounded-md"><p>Uang Masuk</p><p className="font-bold text-sm text-green-700">Rp {totalIn.toLocaleString()}</p></div>
-          <div className="p-2 bg-red-100 rounded-md"><p>Uang Keluar</p><p className="font-bold text-sm text-red-700">Rp {totalOut.toLocaleString()}</p></div>
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-        {/* --- PERUBAHAN DI SINI: Menampilkan rincian admin --- */}
-        <div className="p-2 bg-purple-100 rounded-md">
-            <p>Admin Kotor</p>
-            <p className="font-bold text-sm text-purple-700">Rp {grossAdminFee.toLocaleString()}</p>
+      
+      {/* --- PENAMBAHAN JUDUL "ARUS UANG" --- */}
+      <div className="pt-2">
+        <h4 className="text-sm font-semibold mb-2 text-center text-gray-700">Arus Uang</h4>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+                <p className="text-xs text-blue-800">Kas Awal</p>
+                <p className="font-bold text-sm text-blue-900">Rp {kasAwal.toLocaleString()}</p>
+            </div>
+            <div className="p-2 bg-green-50 rounded-lg">
+                <p className="text-xs text-green-800">Uang Masuk</p>
+                <p className="font-bold text-sm text-green-900">Rp {totalIn.toLocaleString()}</p>
+            </div>
+            <div className="p-2 bg-purple-50 rounded-lg">
+                <p className="text-xs text-purple-800">Total Final Admin</p>
+                <p className="font-bold text-sm text-purple-900">Rp {netAdminFee.toLocaleString()}</p>
+            </div>
+            <div className="p-2 bg-gray-100 rounded-lg">
+                <p className="text-xs text-gray-800">Kas Akhir</p>
+                <p className="font-bold text-sm text-gray-900">Rp {kasAkhir.toLocaleString()}</p>
+            </div>
+            <div className="p-2 bg-red-50 rounded-lg">
+                <p className="text-xs text-red-800">Uang Keluar</p>
+                <p className="font-bold text-sm text-red-900">Rp {totalOut.toLocaleString()}</p>
+            </div>
+            <div className={`p-2 rounded-lg font-semibold ${selisih === 0 ? 'bg-green-100 text-green-800' : selisih > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                <p className="text-xs">Selisih Kas</p>
+                <p className="text-sm">Rp {Math.abs(selisih).toLocaleString()} {selisih === 0 ? '(Sesuai)' : selisih > 0 ? '(Lebih)' : '(Kurang)'}</p>
+            </div>
         </div>
-        <div className="p-2 bg-orange-100 rounded-md">
-            <p>Total Final Admin</p>
-            <p className="font-bold text-sm text-orange-700">Rp {netAdminFee.toLocaleString()}</p>
+      </div>
+
+      {/* --- PENAMBAHAN JUDUL "ARUS SALDO" --- */}
+      <div className="mt-3 pt-3 border-t">
+        <h4 className="text-sm font-semibold mb-2 text-center text-gray-700">Arus Saldo</h4>
+        <div className="grid grid-cols-2 gap-3">
+            <div className="p-2 bg-indigo-50 rounded-lg">
+                <p className="text-xs text-indigo-800">Total Saldo App Awal</p>
+                <p className="font-bold text-sm text-indigo-900">Rp {totalInitialAppBalance.toLocaleString()}</p>
+            </div>
+            <div className="p-2 bg-teal-50 rounded-lg">
+                <p className="text-xs text-teal-800">Total Saldo App Akhir</p>
+                <p className="font-bold text-sm text-teal-900">Rp {totalFinalAppBalance.toLocaleString()}</p>
+            </div>
+            <div className="p-2 bg-green-50 rounded-lg col-span-1">
+                <p className="text-xs text-green-800">Saldo App Masuk</p>
+                <p className="font-bold text-sm text-green-900">Rp {totalAppIn.toLocaleString()}</p>
+            </div>
+            <div className="p-2 bg-red-50 rounded-lg col-span-1">
+                <p className="text-xs text-red-800">Saldo App Keluar</p>
+                <p className="font-bold text-sm text-red-900">Rp {totalAppOut.toLocaleString()}</p>
+            </div>
         </div>
-        {/* --- AKHIR PERUBAHAN --- */}
       </div>
-      <div className={`mt-2 p-2 rounded-md text-sm font-semibold ${selisih === 0 ? 'bg-green-100 text-green-800' : selisih > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-        Selisih Kas: Rp {Math.abs(selisih).toLocaleString()} {selisih === 0 ? '(Sesuai)' : selisih > 0 ? '(Lebih)' : '(Kurang)'}
-      </div>
+
       {shift.notes && (
           <div className="mt-3 pt-3 border-t border-gray-200">
-              <p className="text-md font-semibold mb-1">Catatan Shift:</p>
-              <p className="text-md text-gray-700 whitespace-pre-wrap bg-white p-2 border rounded-md">{shift.notes}</p>
-          </div>
-      )}
-      {appBalances && (
-          <div className="mt-3 pt-3 border-t border-gray-200">
-              <AppBalancesDisplay balances={appBalances} title="Saldo Aplikasi (Akhir Shift)" />
+              <p className="text-xs font-semibold mb-1">Catatan Shift:</p>
+              <p className="text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 border rounded-md">{shift.notes}</p>
           </div>
       )}
     </div>
@@ -95,24 +136,17 @@ const ArchivedShiftItem = React.memo(({ shift, onShowReport, onShowBalanceHistor
 export const ArchivedShiftsList = ({ workers, shiftArchives }) => {
     const { toast } = useToast();
     const { removeShiftArchive, vouchers, products } = useData();
-
-    // State untuk filter
     const [selectedLocation, setSelectedLocation] = useState('PIPITAN');
     const [selectedYear, setSelectedYear] = useState(''); 
     const [selectedMonth, setSelectedMonth] = useState('');
     const [selectedDate, setSelectedDate] = useState('ALL');
-    
-    // State untuk kontrol akordeon
     const [openAccordion, setOpenAccordion] = useState();
-
-    // --- PERUBAHAN 2: State untuk semua dialog dipindahkan ke sini ---
     const [dialogState, setDialogState] = useState({
       transactions: { isOpen: false, shift: null },
       report: { isOpen: false, shift: null },
       balanceHistory: { isOpen: false, shift: null },
     });
 
-    // Logika filter dan pengelompokan (tidak berubah)
     const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     const filterOptions = useMemo(() => {
         const options = { years: new Set(), months: {}, dates: {} };
@@ -164,28 +198,14 @@ export const ArchivedShiftsList = ({ workers, shiftArchives }) => {
     
     const sortedDates = Object.keys(groupedShifts).sort((a, b) => new Date(b) - new Date(a));
     
-    // Handler untuk membuka dialog
-    const handleOpenDialog = (type, shift) => {
-      setDialogState(prev => ({ ...prev, [type]: { isOpen: true, shift }}));
-    };
-    
-    // Handler untuk menutup dialog
-    const handleCloseDialog = (type) => {
-      setDialogState(prev => ({ ...prev, [type]: { isOpen: false, shift: null }}));
-    };
-
-    // Handler untuk aksi hapus dan unduh
+    const handleOpenDialog = (type, shift) => setDialogState(prev => ({ ...prev, [type]: { isOpen: true, shift }}));
+    const handleCloseDialog = (type) => setDialogState(prev => ({ ...prev, [type]: { isOpen: false, shift: null }}));
     const handleDelete = async (shiftId) => {
       const result = await removeShiftArchive(shiftId);
       if (result.success) toast({ title: "Shift Dihapus" });
       else toast({ variant: "destructive", title: "Gagal Menghapus", description: result.error?.message });
     };
-
-    const handleDownloadVoucher = (shift) => {
-      downloadVoucherStockReport(shift, vouchers, true);
-    };
-    
-    // Handler untuk filter
+    const handleDownloadVoucher = (shift) => downloadVoucherStockReport(shift, vouchers, true);
     const handleYearChange = (year) => { setSelectedYear(year); setSelectedMonth(''); setSelectedDate('ALL'); setOpenAccordion(undefined); }
     const handleMonthChange = (month) => { setSelectedMonth(month); setSelectedDate('ALL'); setOpenAccordion(undefined); }
     const handleDateChange = (date) => { setSelectedDate(date); setOpenAccordion(undefined); }
@@ -210,6 +230,7 @@ export const ArchivedShiftsList = ({ workers, shiftArchives }) => {
                                 <ArchivedShiftItem 
                                   key={shift.id} 
                                   shift={shift} 
+                                  products={products}
                                   onShowReport={() => handleOpenDialog('report', shift)}
                                   onShowBalanceHistory={() => handleOpenDialog('balanceHistory', shift)}
                                   onShowTransactions={() => handleOpenDialog('transactions', shift)}
@@ -235,7 +256,6 @@ export const ArchivedShiftsList = ({ workers, shiftArchives }) => {
                 <TabsContent value="SADIK" className="mt-4"><LocationView /></TabsContent>
             </Tabs>
 
-            {/* --- PERUBAHAN 3: Render semua dialog di sini, di luar mapping --- */}
             <ShiftReportDialog 
               shift={dialogState.report.shift} 
               isOpen={dialogState.report.isOpen} 

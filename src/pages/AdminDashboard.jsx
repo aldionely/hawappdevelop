@@ -12,7 +12,7 @@ import { AdminFeeRulesTab } from "@/components/admin/tabs/AdminFeeRulesTab";
 import { ProductsTab } from "@/components/admin/tabs/ProductsTab";
 import { VoucherTab as AdminVoucherTab } from "@/components/admin/tabs/VoucherTab";
 import { AdminAccessoriesTab } from "@/components/admin/tabs/AccessoriesTab";
-import { DashboardTab } from "@/components/admin/tabs/DashboardTab"; // Import komponen baru
+import { DashboardTab } from "@/components/admin/tabs/DashboardTab";
 
 const AdminDashboard = () => {
   const { user, logout, loading: authLoading } = useAuth();
@@ -30,7 +30,10 @@ const AdminDashboard = () => {
     if(user && user.role === "admin"){
       const fetchDataForTab = () => {
         switch(activeTab) {
-          case "dashboard": fetchShiftArchives(); break; // Ambil data untuk dashboard
+          case "dashboard": 
+            fetchShiftArchives(); 
+            fetchVouchers(); // Tambahkan fetchVouchers di sini
+            break;
           case "users": fetchWorkers(); break;
           case "active": fetchActiveShifts(); break;
           case "archives": Promise.all([fetchWorkers(), fetchShiftArchives()]); break;

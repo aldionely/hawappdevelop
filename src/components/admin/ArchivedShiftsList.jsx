@@ -20,8 +20,9 @@ const ArchivedShiftItem = React.memo(({ shift, products, onShowReport, onShowBal
   const kasAkhir = shift.kasAkhir || 0;
   const totalIn = shift.totalIn || 0;
   const totalOut = shift.totalOut || 0;
+  const uangMakan = shift.uang_makan || 0;
   const netAdminFee = shift.totalAdminFee || 0;
-
+  const groosAdminFee = netAdminFee - uangMakan;
   const totalInitialAppBalance = Object.values(shift.initial_app_balances || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
   const totalFinalAppBalance = Object.values(shift.app_balances || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
 
@@ -82,7 +83,7 @@ const ArchivedShiftItem = React.memo(({ shift, products, onShowReport, onShowBal
             </div>
             <div className="p-2 bg-purple-50 rounded-lg">
                 <p className="text-xs text-purple-800">Total Final Admin</p>
-                <p className="font-bold text-sm text-purple-900">Rp {netAdminFee.toLocaleString()}</p>
+                <p className="font-bold text-sm text-purple-900">Rp {groosAdminFee.toLocaleString()}</p>
             </div>
             <div className="p-2 bg-gray-100 rounded-lg">
                 <p className="text-xs text-gray-800">Kas Akhir</p>

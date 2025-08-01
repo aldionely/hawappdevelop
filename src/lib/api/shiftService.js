@@ -63,7 +63,8 @@ export const endShiftAPI = async (shiftData, ensureValidAppBalancesFn, transform
       notes: shiftData.notes,
       // --- PERUBAHAN DI SINI ---
       // Menyimpan hasil kalkulasi (Total Admin - Uang Makan) ke kolom 'totaladminfee'
-      totaladminfee: typeof shiftData.final_admin_fee === 'number' ? shiftData.final_admin_fee : 0,
+      totaladminfee: typeof shiftData.totalAdminFee === 'number' ? shiftData.totalAdminFee : 0, 
+    // Uang makan tetap disimpan sebagai kolom terpisah untuk kalkulasi
       uang_makan: typeof shiftData.uang_makan === 'number' ? shiftData.uang_makan : 0,
       // --- AKHIR PERUBAHAN ---
       app_balances: ensureValidAppBalancesFn(shiftData.app_balances),

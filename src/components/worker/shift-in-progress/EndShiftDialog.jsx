@@ -82,7 +82,7 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
           <Input
             type="text"
             inputMode="decimal"
-            placeholder="Uang Makan (Rp)"
+            placeholder="Uang Harian"
             value={displayUangMakan}
             onChange={handleUangMakanChange}
             className="text-xs sm:text-sm"
@@ -95,7 +95,7 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
           <Input
             type="text"
             inputMode="decimal"
-            placeholder="Uang Aktual di Tangan (Rp)"
+            placeholder="Uang Aktual"
             value={displayActualKasAkhir}
             onChange={handleKasAkhirChange}
             className="text-xs sm:text-sm"
@@ -121,7 +121,7 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
               <span className="font-medium">Rp {totalAdminFee.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center text-xs">
-              <span>Potongan Uang Makan:</span>
+              <span>Potong Uang Harian:</span>
               <span className="font-medium text-red-600">- Rp {numericUangMakan.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center p-2 bg-blue-50 rounded-md">

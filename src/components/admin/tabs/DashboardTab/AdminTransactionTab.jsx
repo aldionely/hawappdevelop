@@ -15,10 +15,10 @@ const processShiftsData = (shifts) => {
         const calculatedAllowance = shift.uang_makan || 0;
         
         // Hitung kembali admin KOTOR dengan menambahkan uang makan.
-        const grossAdminFee = netAdminFee + calculatedAllowance;
+        const grossAdminFee = netAdminFee;
         
         // `finalFee` adalah nilai bersihnya.
-        const finalFee = netAdminFee;
+        const finalFee = netAdminFee - calculatedAllowance;
 
         return { ...shift, calculatedAllowance, finalFee, grossAdminFee };
     });

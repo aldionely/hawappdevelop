@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, Eye, Trash2, Edit, Plus } from 'lucide-react';
+import { PlusCircle, Eye, Trash2, Edit, Plus, Minus } from 'lucide-react';
 import { formatNumberInput, parseFormattedNumber } from '@/lib/utils';
 
 // Komponen VoucherForm dan AddStockDialog tidak perlu diubah, jadi kita biarkan.
@@ -135,6 +135,55 @@ const VoucherLogsDialog = ({ voucher, logs }) => (
         <DialogFooter><DialogClose asChild><Button variant="outline">Tutup</Button></DialogClose></DialogFooter>
     </DialogContent>
 );
+
+const ReduceStockDialog = ({ voucher, onReduceStock }) => {
+    const [quantity, setQuantity] = useState('');
+    const [displayQuantity, setDisplayQuantity] = useState('');
+    const [description, setDescription] = useState('');
+    const { toast } = useToast();
+
+    const handleReduce = () => {
+        const numQuantity = parseInt(parseFormattedNumber(quantity), 10);
+        if (isNaN(numQuantity) || numQuantity <= 0) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Jumlah harus berupa angka positif.' });
+            return;
+        }
+        if (numQuantity > voucher.current_stock) {
+            toast({ variant: 'destructive', title: 'Error', description: `Stok tidak mencukupi. Stok saat ini: ${voucher.current_stock}.` });
+            return;
+        }
+        if (!description.trim()) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Alasan pengurangan stok wajib diisi.' });
+            return;
+        }
+        onReduceStock(numQuantity, description);
+    };
+
+    return (
+        <DialogContent>
+            <DialogHeader><DialogTitle>Kurangi Stok: {voucher.name}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+                <p className="text-sm">Stok Saat Ini: <span className="font-bold">{voucher.current_stock}</span></p>
+                <Input 
+                    type="text" 
+                    placeholder="Jumlah Pengurangan" 
+                    value={displayQuantity} 
+                    onChange={e => { setDisplayQuantity(formatNumberInput(e.target.value)); setQuantity(e.target.value); }} 
+                />
+                <Input 
+                    placeholder="Alasan Pengurangan" 
+                    value={description} 
+                    onChange={e => setDescription(e.target.value)} 
+                    required 
+                />
+            </div>
+            <DialogFooter>
+                <DialogClose asChild><Button variant="outline">Batal</Button></DialogClose>
+                <DialogClose asChild><Button onClick={handleReduce} variant="destructive">Kurangi Stok</Button></DialogClose>
+            </DialogFooter>
+        </DialogContent>
+    );
+};
 
 
 export const VoucherTab = () => {
@@ -282,7 +331,21 @@ export const VoucherTab = () => {
                                                 </div>
                                                 <div className="flex items-center space-x-1">
                                                     <Dialog>
-                                                        <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" title="Tambah Stok"><Plus size={14} /></Button></DialogTrigger>
+                                                        <DialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700" title="Kurangi Stok">
+                                                                <Minus size={14} />
+                                                            </Button>
+                                                        </DialogTrigger>
+                                                        <ReduceStockDialog voucher={v} onReduceStock={(qty, desc) => updateVoucherStock(v.id, -qty, 'PENGURANGAN', desc)} />
+                                                    </Dialog>
+
+                                                    {/* Tombol Penambahan (Sudah ada) */}
+                                                    <Dialog>
+                                                        <DialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-green-500 hover:text-green-700" title="Tambah Stok">
+                                                                <Plus size={14} />
+                                                            </Button>
+                                                        </DialogTrigger>
                                                         <AddStockDialog voucher={v} onAddStock={(qty, desc) => updateVoucherStock(v.id, qty, 'PENAMBAHAN', desc)} />
                                                     </Dialog>
                                                     <Dialog>

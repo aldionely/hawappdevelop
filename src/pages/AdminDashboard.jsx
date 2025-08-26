@@ -16,9 +16,10 @@ import { DashboardTab } from "@/components/admin/tabs/DashboardTab";
 
 const AdminDashboard = () => {
   const { user, logout, loading: authLoading } = useAuth();
-  const { loadingData, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories  } = useData();
+  // --- MODIFIKASI: Tambahkan fetchBankHawBalance ---
+  const { loadingData, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories, fetchBankHawBalance  } = useData();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = React.useState("dashboard"); // Set dashboard sebagai default
+  const [activeTab, setActiveTab] = React.useState("dashboard");
 
   React.useEffect(() => {
     if (!authLoading && (!user || user.role !== "admin")) {
@@ -30,9 +31,13 @@ const AdminDashboard = () => {
     if(user && user.role === "admin"){
       const fetchDataForTab = () => {
         switch(activeTab) {
+          // --- MODIFIKASI: Panggil fetchBankHawBalance di sini ---
           case "dashboard": 
-            fetchShiftArchives(); 
-            fetchVouchers(); // Tambahkan fetchVouchers di sini
+            Promise.all([
+              fetchShiftArchives(), 
+              fetchVouchers(),
+              fetchBankHawBalance()
+            ]);
             break;
           case "users": fetchWorkers(); break;
           case "active": fetchActiveShifts(); break;
@@ -46,7 +51,8 @@ const AdminDashboard = () => {
       };
       fetchDataForTab();
     }
-  }, [activeTab, user, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories]);
+    // --- MODIFIKASI: Tambahkan fetchBankHawBalance sebagai dependency ---
+  }, [activeTab, user, fetchWorkers, fetchActiveShifts, fetchShiftArchives, fetchAdminFeeRules, fetchProducts, fetchVouchers, fetchAccessories, fetchBankHawBalance]);
 
   const handleLogout = () => {
     logout();

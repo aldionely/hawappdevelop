@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { useData } from '@/contexts/DataContext'; // 1. Impor useData
 
 export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftData }) => {
   const [actualKasAkhir, setActualKasAkhir] = useState("");
@@ -21,6 +22,7 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
   const [uangMakan, setUangMakan] = useState("");
   const [displayUangMakan, setDisplayUangMakan] = useState("");
   const { toast } = useToast();
+  const { vouchers } = useData(); // 2. Ambil data master voucher
 
   const baseExpectedBalance = (shiftData.kasAwal || 0) + (shiftData.totalIn || 0) - (shiftData.totalOut || 0);
   const numericUangMakan = parseFloat(parseFormattedNumber(uangMakan)) || 0;
@@ -29,6 +31,43 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
 
   const totalAdminFee = shiftData.totalAdminFee || 0;
   const finalAdminFee = totalAdminFee - numericUangMakan;
+
+  // 3. Logika untuk menghitung selisih stok voucher
+  const stockDiscrepancies = useMemo(() => {
+    if (!shiftData || !shiftData.initial_voucher_stock || !vouchers) return [];
+
+    const discrepancies = [];
+    // Hitung penjualan tercatat dari transaksi
+    const recordedSales = (shiftData.transactions || [])
+      .filter(tx => tx.id && tx.id.includes('tx_vcr'))
+      .reduce((acc, tx) => {
+        acc[tx.description] = (acc[tx.description] || 0) + 1;
+        return acc;
+      }, {});
+
+    // Bandingkan stok awal, penjualan, dan stok akhir
+    Object.keys(shiftData.initial_voucher_stock).forEach(voucherId => {
+      const initialStock = shiftData.initial_voucher_stock[voucherId];
+      const voucherInfo = vouchers.find(v => v.id === voucherId);
+
+      if (voucherInfo) {
+        const salesCount = recordedSales[voucherInfo.name] || 0;
+        const expectedStock = initialStock - salesCount;
+        const actualStock = voucherInfo.current_stock; // Stok fisik terakhir di database
+        const discrepancy = actualStock - expectedStock;
+
+        if (discrepancy !== 0) {
+          discrepancies.push({
+            name: voucherInfo.name,
+            expected: expectedStock,
+            actual: actualStock,
+            diff: discrepancy,
+          });
+        }
+      }
+    });
+    return discrepancies;
+  }, [shiftData, vouchers]);
 
   const handleKasAkhirChange = (e) => {
     const value = e.target.value;
@@ -78,6 +117,26 @@ export const EndShiftDialog = ({ isOpen, onOpenChange, onConfirmEndShift, shiftD
         </DialogHeader>
         <div className="space-y-3 py-2">
           
+          {/* 4. Tampilkan Peringatan Selisih Stok di Sini */}
+          {stockDiscrepancies.length > 0 && (
+            <div className="p-3 border-l-4 border-red-500 bg-red-50 rounded-md text-xs">
+              <h4 className="font-bold text-red-700 mb-2">Peringatan: Ada Selisih Stok Voucher!</h4>
+              <p className="text-red-600 mb-2">
+                Stok fisik saat ini tidak cocok dengan catatan penjualan. Harap periksa kembali transaksi Anda.
+              </p>
+              <div className="space-y-1">
+                {stockDiscrepancies.map(item => (
+                  <div key={item.name} className="flex justify-between items-center">
+                    <span>{item.name}:</span>
+                    <span className="font-semibold">
+                      Selisih {item.diff > 0 ? `+${item.diff}` : item.diff} (Harusnya: {item.expected}, Sekarang: {item.actual})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* --- BAGIAN ATAS --- */}
           <Input
             type="text"

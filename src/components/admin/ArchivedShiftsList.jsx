@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Trash2, Eye, FileText, Download, Ticket, ListChecks } from 'lucide-react';
+import { Trash2, Eye, FileText, Download, Ticket, ListChecks, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,17 +13,56 @@ import { BalanceHistoryDialog } from '@/components/shared/BalanceHistoryDialog';
 import { downloadTransactions, downloadVoucherStockReport } from '@/lib/downloadHelper';
 import { useData } from '@/contexts/DataContext';
 import { formatDateTime } from '@/lib/utils';
-import { calculateProductAdminFee } from '@/lib/productAndBalanceHelper'; // Import helper
+import { calculateProductAdminFee } from '@/lib/productAndBalanceHelper';
 
-const ArchivedShiftItem = React.memo(({ shift, products, onShowReport, onShowBalanceHistory, onShowTransactions, onDownloadVoucher, onDelete }) => {
+// Komponen untuk Konten Dialog Rincian Stok
+const VoucherStockDetailsDialog = ({ shift, details, isOpen, onOpenChange }) => (
+  <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Rincian Stok Voucher</DialogTitle>
+          <DialogDescription>
+            Mencocokkan stok untuk shift {shift?.workerName} pada {formatDateTime(shift?.startTime).date}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 pr-2 py-2 max-h-[60vh] overflow-y-auto">
+          {details.length > 0 ? details.map(item => (
+            <div key={item.name} className={`p-3 rounded-md text-sm ${item.discrepancy !== 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+              <p className={`font-bold ${item.discrepancy !== 0 ? 'text-red-800' : 'text-green-800'}`}>{item.name}</p>
+              <div className="grid grid-cols-2 gap-x-4 mt-1">
+                <span>Stok Awal: {item.initial}</span>
+                <span>Terjual Tercatat: {item.sold}</span>
+                <span>Stok Seharusnya: {item.expected}</span>
+                <span>Stok Akhir Fisik: {item.final}</span>
+              </div>
+              {item.discrepancy !== 0 && (
+                <p className="font-bold text-red-700 border-t border-red-200 mt-2 pt-2">
+                  Selisih: {item.discrepancy}
+                </p>
+              )}
+            </div>
+          )) : (
+            <p className="text-center text-gray-500 py-4">Tidak ada data stok voucher untuk shift ini.</p>
+          )}
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">Tutup</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+  </Dialog>
+);
+
+
+const ArchivedShiftItem = React.memo(({ shift, products, vouchers, onShowReport, onShowBalanceHistory, onShowTransactions, onDownloadVoucher, onDelete, onShowStockDetails }) => {
   const selisih = shift.selisih || 0;
   const kasAwal = shift.kasAwal || 0;
   const kasAkhir = shift.kasAkhir || 0;
   const totalIn = shift.totalIn || 0;
   const totalOut = shift.totalOut || 0;
-  const uangMakan = shift.uang_makan || 0;
   const netAdminFee = shift.totalAdminFee || 0;
-  const groosAdminFee = netAdminFee - uangMakan;
+
   const totalInitialAppBalance = Object.values(shift.initial_app_balances || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
   const totalFinalAppBalance = Object.values(shift.app_balances || {}).reduce((sum, val) => sum + (Number(val) || 0), 0);
 
@@ -45,6 +85,37 @@ const ArchivedShiftItem = React.memo(({ shift, products, onShowReport, onShowBal
     });
     return { totalAppIn: appIn, totalAppOut: appOut };
   }, [shift.transactions, products]);
+
+  const voucherStockDetails = useMemo(() => {
+    if (!shift.initial_voucher_stock || !vouchers) return [];
+    const details = [];
+    const salesCount = (shift.transactions || [])
+      .filter(tx => tx.id && tx.id.includes('tx_vcr'))
+      .reduce((acc, tx) => {
+        acc[tx.description] = (acc[tx.description] || 0) + 1;
+        return acc;
+      }, {});
+
+    for (const voucherId in shift.initial_voucher_stock) {
+      const voucherInfo = vouchers.find(v => v.id === voucherId);
+      if (voucherInfo) {
+        const initialStock = shift.initial_voucher_stock[voucherId] || 0;
+        const sold = salesCount[voucherInfo.name] || 0;
+        const expectedStock = initialStock - sold;
+        const finalStock = shift.final_voucher_stock ? (shift.final_voucher_stock[voucherId] ?? 0) : 0;
+        const discrepancy = finalStock - expectedStock;
+
+        details.push({
+          name: voucherInfo.name,
+          initial: initialStock, sold, expected: expectedStock,
+          final: finalStock, discrepancy,
+        });
+      }
+    }
+    return details.sort((a, b) => a.name.localeCompare(b.name));
+  }, [shift, vouchers]);
+  
+  const totalDiscrepancies = voucherStockDetails.filter(v => v.discrepancy !== 0).length;
 
   return (
     <div className="p-4 border rounded-lg bg-gray-50 mb-3 shadow-sm">
@@ -69,65 +140,40 @@ const ArchivedShiftItem = React.memo(({ shift, products, onShowReport, onShowBal
         </div>
       </div>
       
-      {/* --- PENAMBAHAN JUDUL "ARUS UANG" --- */}
       <div className="pt-2">
         <h4 className="text-sm font-semibold mb-2 text-center text-gray-700">Arus Uang</h4>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
-                <p className="text-xs text-blue-800">Kas Awal</p>
-                <p className="font-bold text-sm text-blue-900">Rp {kasAwal.toLocaleString()}</p>
-            </div>
-            <div className="p-2 bg-green-50 rounded-lg">
-                <p className="text-xs text-green-800">Uang Masuk</p>
-                <p className="font-bold text-sm text-green-900">Rp {totalIn.toLocaleString()}</p>
-            </div>
-            <div className="p-2 bg-purple-50 rounded-lg">
-                <p className="text-xs text-purple-800">Total Final Admin</p>
-                <p className="font-bold text-sm text-purple-900">Rp {groosAdminFee.toLocaleString()}</p>
-            </div>
-            <div className="p-2 bg-gray-100 rounded-lg">
-                <p className="text-xs text-gray-800">Kas Akhir</p>
-                <p className="font-bold text-sm text-gray-900">Rp {kasAkhir.toLocaleString()}</p>
-            </div>
-            <div className="p-2 bg-red-50 rounded-lg">
-                <p className="text-xs text-red-800">Uang Keluar</p>
-                <p className="font-bold text-sm text-red-900">Rp {totalOut.toLocaleString()}</p>
-            </div>
-            <div className={`p-2 rounded-lg font-semibold ${selisih === 0 ? 'bg-green-100 text-green-800' : selisih > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                <p className="text-xs">Selisih Kas</p>
-                <p className="text-sm">Rp {Math.abs(selisih).toLocaleString()} {selisih === 0 ? '(Sesuai)' : selisih > 0 ? '(Lebih)' : '(Kurang)'}</p>
-            </div>
+            <div className="p-2 bg-blue-50 rounded-lg"><p className="text-xs text-blue-800">Kas Awal</p><p className="font-bold text-sm text-blue-900">Rp {kasAwal.toLocaleString()}</p></div>
+            <div className="p-2 bg-green-50 rounded-lg"><p className="text-xs text-green-800">Uang Masuk</p><p className="font-bold text-sm text-green-900">Rp {totalIn.toLocaleString()}</p></div>
+            <div className="p-2 bg-purple-50 rounded-lg"><p className="text-xs text-purple-800">Total Final Admin</p><p className="font-bold text-sm text-purple-900">Rp {netAdminFee.toLocaleString()}</p></div>
+            <div className="p-2 bg-gray-100 rounded-lg"><p className="text-xs text-gray-800">Kas Akhir</p><p className="font-bold text-sm text-gray-900">Rp {kasAkhir.toLocaleString()}</p></div>
+            <div className="p-2 bg-red-50 rounded-lg"><p className="text-xs text-red-800">Uang Keluar</p><p className="font-bold text-sm text-red-900">Rp {totalOut.toLocaleString()}</p></div>
+            <div className={`p-2 rounded-lg font-semibold ${selisih === 0 ? 'bg-green-100 text-green-800' : selisih > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}><p className="text-xs">Selisih Kas</p><p className="text-sm">Rp {Math.abs(selisih).toLocaleString()} {selisih === 0 ? '(Sesuai)' : selisih > 0 ? '(Lebih)' : '(Kurang)'}</p></div>
         </div>
       </div>
 
-      {/* --- PENAMBAHAN JUDUL "ARUS SALDO" --- */}
       <div className="mt-3 pt-3 border-t">
         <h4 className="text-sm font-semibold mb-2 text-center text-gray-700">Arus Saldo</h4>
         <div className="grid grid-cols-2 gap-3">
-            <div className="p-2 bg-indigo-50 rounded-lg">
-                <p className="text-xs text-indigo-800">Total Saldo App Awal</p>
-                <p className="font-bold text-sm text-indigo-900">Rp {totalInitialAppBalance.toLocaleString()}</p>
-            </div>
-            <div className="p-2 bg-teal-50 rounded-lg">
-                <p className="text-xs text-teal-800">Total Saldo App Akhir</p>
-                <p className="font-bold text-sm text-teal-900">Rp {totalFinalAppBalance.toLocaleString()}</p>
-            </div>
-            <div className="p-2 bg-green-50 rounded-lg col-span-1">
-                <p className="text-xs text-green-800">Saldo App Masuk</p>
-                <p className="font-bold text-sm text-green-900">Rp {totalAppIn.toLocaleString()}</p>
-            </div>
-            <div className="p-2 bg-red-50 rounded-lg col-span-1">
-                <p className="text-xs text-red-800">Saldo App Keluar</p>
-                <p className="font-bold text-sm text-red-900">Rp {totalAppOut.toLocaleString()}</p>
-            </div>
+            <div className="p-2 bg-indigo-50 rounded-lg"><p className="text-xs text-indigo-800">Total Saldo App Awal</p><p className="font-bold text-sm text-indigo-900">Rp {totalInitialAppBalance.toLocaleString()}</p></div>
+            <div className="p-2 bg-teal-50 rounded-lg"><p className="text-xs text-teal-800">Total Saldo App Akhir</p><p className="font-bold text-sm text-teal-900">Rp {totalFinalAppBalance.toLocaleString()}</p></div>
+            <div className="p-2 bg-green-50 rounded-lg col-span-1"><p className="text-xs text-green-800">Saldo App Masuk</p><p className="font-bold text-sm text-green-900">Rp {totalAppIn.toLocaleString()}</p></div>
+            <div className="p-2 bg-red-50 rounded-lg col-span-1"><p className="text-xs text-red-800">Saldo App Keluar</p><p className="font-bold text-sm text-red-900">Rp {totalAppOut.toLocaleString()}</p></div>
         </div>
       </div>
 
-      {shift.notes && (
-          <div className="mt-3 pt-3 border-t border-gray-200">
-              <p className="text-xs font-semibold mb-1">Catatan Shift:</p>
-              <p className="text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 border rounded-md">{shift.notes}</p>
-          </div>
+      {shift.notes && (<div className="mt-3 pt-3 border-t border-gray-200"><p className="text-xs font-semibold mb-1">Catatan Shift:</p><p className="text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 border rounded-md">{shift.notes}</p></div>)}
+      
+      {voucherStockDetails.length > 0 && (
+         <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onShowStockDetails(shift.id)}
+            className={`w-full mt-3 text-xs ${totalDiscrepancies > 0 ? 'border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700' : ''}`}
+        >
+          <Package size={14} className="mr-2"/>
+          Lihat Rincian Stok Voucher ({totalDiscrepancies} Selisih)
+        </Button>
       )}
     </div>
   );
@@ -142,11 +188,45 @@ export const ArchivedShiftsList = ({ workers, shiftArchives }) => {
     const [selectedMonth, setSelectedMonth] = useState('');
     const [selectedDate, setSelectedDate] = useState('ALL');
     const [openAccordion, setOpenAccordion] = useState();
+    
+    // State diangkat ke komponen induk
+    const [stockDetailsShiftId, setStockDetailsShiftId] = useState(null);
+
     const [dialogState, setDialogState] = useState({
       transactions: { isOpen: false, shift: null },
       report: { isOpen: false, shift: null },
       balanceHistory: { isOpen: false, shift: null },
     });
+
+    // Logika untuk mendapatkan data dialog yang aktif
+    const activeStockDetailsShift = useMemo(() => {
+        if (!stockDetailsShiftId) return null;
+        return shiftArchives.find(s => s.id === stockDetailsShiftId);
+    }, [stockDetailsShiftId, shiftArchives]);
+
+    const activeVoucherStockDetails = useMemo(() => {
+      if (!activeStockDetailsShift || !activeStockDetailsShift.initial_voucher_stock || !vouchers) return [];
+      const details = [];
+      const salesCount = (activeStockDetailsShift.transactions || [])
+        .filter(tx => tx.id && tx.id.includes('tx_vcr'))
+        .reduce((acc, tx) => {
+          acc[tx.description] = (acc[tx.description] || 0) + 1;
+          return acc;
+        }, {});
+      for (const voucherId in activeStockDetailsShift.initial_voucher_stock) {
+        const voucherInfo = vouchers.find(v => v.id === voucherId);
+        if (voucherInfo) {
+          const initialStock = activeStockDetailsShift.initial_voucher_stock[voucherId] || 0;
+          const sold = salesCount[voucherInfo.name] || 0;
+          const expectedStock = initialStock - sold;
+          const finalStock = activeStockDetailsShift.final_voucher_stock ? (activeStockDetailsShift.final_voucher_stock[voucherId] ?? 0) : 0;
+          const discrepancy = finalStock - expectedStock;
+          details.push({ name: voucherInfo.name, initial: initialStock, sold, expected: expectedStock, final: finalStock, discrepancy });
+        }
+      }
+      return details.sort((a, b) => a.name.localeCompare(b.name));
+    }, [activeStockDetailsShift, vouchers]);
+
 
     const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     const filterOptions = useMemo(() => {
@@ -232,11 +312,13 @@ export const ArchivedShiftsList = ({ workers, shiftArchives }) => {
                                   key={shift.id} 
                                   shift={shift} 
                                   products={products}
+                                  vouchers={vouchers}
                                   onShowReport={() => handleOpenDialog('report', shift)}
                                   onShowBalanceHistory={() => handleOpenDialog('balanceHistory', shift)}
                                   onShowTransactions={() => handleOpenDialog('transactions', shift)}
                                   onDownloadVoucher={handleDownloadVoucher}
                                   onDelete={handleDelete}
+                                  onShowStockDetails={setStockDetailsShiftId}
                                 />
                             ))}
                         </AccordionContent>
@@ -276,6 +358,13 @@ export const ArchivedShiftsList = ({ workers, shiftArchives }) => {
               onOpenChange={() => handleCloseDialog('balanceHistory')}
               shift={dialogState.balanceHistory.shift}
               products={products}
+            />
+
+            <VoucherStockDetailsDialog 
+                shift={activeStockDetailsShift}
+                details={activeVoucherStockDetails}
+                isOpen={!!stockDetailsShiftId}
+                onOpenChange={(open) => !open && setStockDetailsShiftId(null)}
             />
         </>
     );

@@ -1,21 +1,22 @@
-// src/components/worker/app-balances/AppBalancesManager.jsx
-
-import React, { useState, useMemo } from 'react'; // 1. Impor useMemo
+import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MinusCircle, Shuffle } from 'lucide-react';
 import { AppBalancesDisplay } from '@/components/worker/AppBalancesDisplay';
 import { UpdateBalanceDialog } from './UpdateBalanceDialog';
 import { TransferBalanceDialog } from './TransferBalanceDialog';
+// --- PERBAIKAN: Tambahkan ekstensi .jsx pada import ---
+import { AddBalanceFromBankDialog } from './AddBalanceFromBankDialog.jsx'; 
 import { BalanceHistory } from './BalanceHistory';
 import { useData } from '@/contexts/DataContext';
 
 export const AppBalancesManager = ({ activeShiftData }) => {
-  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  // --- State dialog dipisah ---
+  const [isAddFromBankDialogOpen, setIsAddFromBankDialogOpen] = useState(false);
+  const [isReduceDialogOpen, setIsReduceDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
-  const [dialogType, setDialogType] = useState('PENAMBAHAN');
+  
   const { products } = useData();
 
-  // 2. Hitung total saldo awal dan saat ini menggunakan useMemo
   const { totalInitialBalance, totalCurrentBalance } = useMemo(() => {
     const initial = activeShiftData.initial_app_balances || {};
     const current = activeShiftData.app_balances || {};
@@ -26,16 +27,10 @@ export const AppBalancesManager = ({ activeShiftData }) => {
     return { totalInitialBalance: totalInitial, totalCurrentBalance: totalCurrent };
   }, [activeShiftData.initial_app_balances, activeShiftData.app_balances]);
 
-  const openUpdateDialog = (type) => {
-    setDialogType(type);
-    setIsUpdateDialogOpen(true);
-  };
-
   return (
     <div className="space-y-4">
       <div className="p-3 border rounded-lg bg-white">
         
-        {/* 3. Tampilkan statistik total saldo di sini */}
         <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
             <div className="p-3 bg-blue-50 rounded-lg">
                 <p className="text-xs text-blue-800 font-medium">Total Saldo Awal</p>
@@ -54,13 +49,15 @@ export const AppBalancesManager = ({ activeShiftData }) => {
         <AppBalancesDisplay balances={activeShiftData.app_balances} title="Saldo Aplikasi Saat Ini" />
         
         <div className="grid grid-cols-3 gap-2 mt-4">
-          <Button variant="outline" size="sm" onClick={() => openUpdateDialog('PENAMBAHAN')}>
+          {/* Tombol "Tambah" sekarang membuka dialog baru */}
+          <Button variant="outline" size="sm" onClick={() => setIsAddFromBankDialogOpen(true)}>
             <PlusCircle size={16} className="mr-2" /> Tambah
           </Button>
           <Button variant="outline" size="xs" onClick={() => setIsTransferDialogOpen(true)}>
-            <Shuffle size={16} className="mr-2" /> Pindah Saldo
+            <Shuffle size={16} className="mr-2" /> Oper Saldo
           </Button>
-          <Button variant="outline" size="sm" onClick={() => openUpdateDialog('PENGURANGAN')}>
+          {/* Tombol "Kurang" sekarang punya state sendiri */}
+          <Button variant="outline" size="sm" onClick={() => setIsReduceDialogOpen(true)}>
             <MinusCircle size={16} className="mr-2" /> Kurang
           </Button>
         </div>
@@ -73,10 +70,18 @@ export const AppBalancesManager = ({ activeShiftData }) => {
         />
       </div>
 
+      {/* Render dialog untuk tambah saldo dari BANK HAW */}
+      <AddBalanceFromBankDialog
+        isOpen={isAddFromBankDialogOpen}
+        onOpenChange={setIsAddFromBankDialogOpen}
+        currentBalances={activeShiftData.app_balances}
+      />
+
+      {/* Dialog untuk mengurangi saldo (sebelumnya UpdateBalanceDialog) */}
       <UpdateBalanceDialog
-        isOpen={isUpdateDialogOpen}
-        onOpenChange={setIsUpdateDialogOpen}
-        type={dialogType}
+        isOpen={isReduceDialogOpen}
+        onOpenChange={setIsReduceDialogOpen}
+        type="PENGURANGAN"
         currentBalances={activeShiftData.app_balances}
       />
 

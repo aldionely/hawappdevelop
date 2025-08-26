@@ -8,11 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatNumberInput, parseFormattedNumber } from '@/lib/utils';
 
-export const TransferBalanceDialog = ({ isOpen, onOpenChange, currentBalances }) => {
-  const { appBalanceKeysAndNames, transferAppBalance, bankHawBalance } = useData();
+export const AddBalanceFromBankDialog = ({ isOpen, onOpenChange, currentBalances }) => {
+  const { appBalanceKeysAndNames, transferFromBankToShift } = useData();
   const { toast } = useToast();
 
-  const [fromAppKey, setFromAppKey] = useState('');
   const [toAppKey, setToAppKey] = useState('');
   const [amount, setAmount] = useState('');
   const [displayAmount, setDisplayAmount] = useState('');
@@ -21,7 +20,6 @@ export const TransferBalanceDialog = ({ isOpen, onOpenChange, currentBalances })
 
   useEffect(() => {
     if (isOpen) {
-      setFromAppKey('');
       setToAppKey('');
       setAmount('');
       setDisplayAmount('');
@@ -33,29 +31,19 @@ export const TransferBalanceDialog = ({ isOpen, onOpenChange, currentBalances })
   const handleSubmit = async () => {
     const numAmount = parseFormattedNumber(amount);
     
-    if (!fromAppKey || !toAppKey || !numAmount || numAmount <= 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Harap isi semua field dengan benar.' });
+    if (!toAppKey || !numAmount || numAmount <= 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Harap pilih aplikasi tujuan dan isi jumlah dengan benar.' });
       return;
-    }
-    
-    if (fromAppKey === toAppKey) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Aplikasi asal dan tujuan tidak boleh sama.' });
-        return;
-    }
-
-    if ((currentBalances[fromAppKey] || 0) < numAmount) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Saldo aplikasi asal tidak mencukupi.' });
-        return;
     }
 
     setIsSubmitting(true);
-    const result = await transferAppBalance(fromAppKey, toAppKey, numAmount, description);
+    const result = await transferFromBankToShift(toAppKey, numAmount, description);
 
     if (result.success) {
-      toast({ title: 'Berhasil', description: `Saldo berhasil dioper.` });
+      toast({ title: 'Berhasil', description: `Saldo berhasil ditambahkan dari BANK HAW.` });
       onOpenChange(false);
     } else {
-      toast({ variant: 'destructive', title: 'Gagal', description: result.error || 'Gagal mengoper saldo.' });
+      toast({ variant: 'destructive', title: 'Gagal', description: result.error?.message || 'Gagal menambah saldo.' });
     }
     setIsSubmitting(false);
   };
@@ -64,37 +52,20 @@ export const TransferBalanceDialog = ({ isOpen, onOpenChange, currentBalances })
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-y-auto max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Oper Saldo Aplikasi</DialogTitle>
+          <DialogTitle>Tambah Saldo dari BANK HAW</DialogTitle>
           <DialogDescription>
-            Pilih aplikasi di bawah untuk dipindahkan.
+            Dana akan ditransfer dari kas pusat (BANK HAW) ke aplikasi yang Anda pilih.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div>
-            <label className="text-sm font-medium">Dari Aplikasi</label>
-            <Select value={fromAppKey} onValueChange={setFromAppKey}>
-                <SelectTrigger><SelectValue placeholder="Pilih Aplikasi Asal" /></SelectTrigger>
-                <SelectContent>
-                {appBalanceKeysAndNames.map(app => (
-                    <SelectItem key={app.key} value={app.key}>
-                    {app.name} (Saldo: Rp {(currentBalances[app.key] || 0).toLocaleString()})
-                    </SelectItem>
-                ))}
-                </SelectContent>
-            </Select>
-          </div>
-           <div>
             <label className="text-sm font-medium">Ke Aplikasi</label>
             <Select value={toAppKey} onValueChange={setToAppKey}>
                 <SelectTrigger><SelectValue placeholder="Pilih Aplikasi Tujuan" /></SelectTrigger>
                 <SelectContent>
-                <SelectItem value="BANK_HAW">
-                    BANK HAW (Setor ke Pusat)
-                </SelectItem>
-                <hr className="my-1"/>
                 {appBalanceKeysAndNames.map(app => (
-                    <SelectItem key={app.key} value={app.key} disabled={app.key === fromAppKey}>
-                        {app.name} (Saldo: Rp {(currentBalances[app.key] || 0).toLocaleString()})
+                    <SelectItem key={app.key} value={app.key}>
+                    {app.name} (Saldo: Rp {(currentBalances[app.key] || 0).toLocaleString()})
                     </SelectItem>
                 ))}
                 </SelectContent>
@@ -119,7 +90,7 @@ export const TransferBalanceDialog = ({ isOpen, onOpenChange, currentBalances })
         <DialogFooter>
           <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Batal</Button></DialogClose>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Memproses...' : 'Konfirmasi Oper'}
+            {isSubmitting ? 'Memproses...' : 'Konfirmasi'}
           </Button>
         </DialogFooter>
       </DialogContent>

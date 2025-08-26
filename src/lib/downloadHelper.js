@@ -8,8 +8,8 @@ const processShiftsForReport = (shifts) => {
   return shifts.map(shift => {
       const netAdminFee = shift.totalAdminFee || 0;
       const calculatedAllowance = shift.uang_makan || 0;
-      const grossAdminFee = netAdminFee + calculatedAllowance;
-      const finalFee = netAdminFee;
+      const grossAdminFee = netAdminFee;
+      const finalFee = netAdminFee - calculatedAllowance;
       return { ...shift, calculatedAllowance, finalFee, grossAdminFee };
   });
 };
@@ -79,17 +79,19 @@ export const downloadLocationAdminReport = (shiftsForLocation, location, dateRan
       const { shifts, total } = groupedByDate[dateKey];
       const formattedDateTitle = new Date(dateKey.replace(/-/g, '/')).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-      // --- PERUBAHAN 2: Gunakan `grossAdminFee` untuk kolom 'TOTAL ADMIN' ---
-      const tableBody = shifts.map(shift => {
-          const timeRange = `${new Date(shift.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'})} - ${shift.endTime ? new Date(shift.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : '-'}`;
-          return [
-              shift.workerName,
-              timeRange,
-              formatCurrency(shift.grossAdminFee || 0), // Menggunakan admin kotor
-              formatCurrency(shift.calculatedAllowance),
-              formatCurrency(shift.finalFee)
-          ];
-      });
+      // --- PERUBAHAN DI SINI: Mengurutkan shift berdasarkan waktu mulai ---
+      const tableBody = [...shifts]
+          .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+          .map(shift => {
+              const timeRange = `${new Date(shift.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'})} - ${shift.endTime ? new Date(shift.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : '-'}`;
+              return [
+                  shift.workerName,
+                  timeRange,
+                  formatCurrency(shift.grossAdminFee || 0), // Menggunakan admin kotor
+                  formatCurrency(shift.calculatedAllowance),
+                  formatCurrency(shift.finalFee)
+              ];
+          });
       
       const totalRow = [
           { content: '',},
@@ -423,4 +425,47 @@ export const downloadCategoryVoucherReport = (shift, vouchersForCategory, catego
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+};
+
+export const downloadBankHawReport = (logs) => {
+  if (!logs || logs.length === 0) {
+      alert("Tidak ada data riwayat untuk diunduh.");
+      return;
+  }
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  doc.setFontSize(18);
+  doc.text("Laporan Riwayat Transaksi BANK HAW", pageWidth / 2, 20, { align: 'center' });
+  doc.setFontSize(12);
+  doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, pageWidth / 2, 28, { align: 'center' });
+
+  const tableBody = logs.map(log => {
+      const amountText = `${log.amount > 0 ? '+' : '-'} ${formatCurrency(Math.abs(log.amount))}`;
+      return [
+          new Date(log.timestamp).toLocaleString('id-ID'),
+          log.activity_type.replace(/_/g, ' '),
+          log.actor,
+          log.description || '-',
+          amountText,
+          formatCurrency(log.new_balance)
+      ];
+  });
+
+  autoTable(doc, {
+      startY: 40,
+      head: [['WAKTU', 'AKTIVITAS', 'PELAKU', 'DESKRIPSI', 'JUMLAH', 'SALDO AKHIR']],
+      body: tableBody,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 8 },
+      columnStyles: {
+          4: { halign: 'right' },
+          5: { halign: 'right' }
+      }
+  });
+
+  const fileName = `Laporan_BANK_HAW_${new Date().toLocaleDateString('sv')}.pdf`;
+  doc.save(fileName);
 };

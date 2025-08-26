@@ -11,7 +11,6 @@ import { formatNumberInput, parseFormattedNumber } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { downloadVoucherStockReport, downloadCategoryVoucherReport } from '@/lib/downloadHelper';
 
-// Komponen-komponen ini tidak berubah
 const AddStockDialog = ({ voucher, onConfirm }) => {
     const [quantity, setQuantity] = useState('');
     const [displayQuantity, setDisplayQuantity] = useState('');
@@ -65,7 +64,6 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
         <div className="p-3 border rounded-lg bg-white flex justify-between items-center">
             <div>
                 <p className="font-semibold text-sm">{voucher.name}</p>
-                {/* Menambahkan tampilan harga jual */}
                 <p className="text-xs text-muted-foreground">Harga: Rp {voucher.sell_price.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">{voucher.category}</p>
             </div>
@@ -119,7 +117,6 @@ const VoucherHistoryList = ({ transactions }) => {
     );
 };
 
-// Fungsi pengurutan ini sudah benar
 const sortVoucherItems = (a, b) => {
     const regex = /([\d.,]+)\s*GB/i;
     const matchA = a.name.match(regex);
@@ -141,13 +138,11 @@ const sortVoucherItems = (a, b) => {
 };
 
 
-// Komponen Utama VoucherTab
 export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
     const { vouchers, updateVoucherStock, sellVoucherAndUpdateShift } = useData();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Perbaikan nama kategori "UNLIMITED" menjadi "UNL" agar konsisten
     const categoryOrder = [
         "VCR SMARTFREN HARIAN", "VCR SMARTFREN UNL", "VCR INDOSAT UNL",
         "VCR INDOSAT BULANAN", "VCR INDOSAT HARIAN", "VCR TRI BULANAN", "VCR TRI HARIAN",
@@ -214,7 +209,6 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
         downloadVoucherStockReport(activeShiftData, vouchers, false);
     };
 
-    // --- 1. INI ADALAH DEFINISI FUNGSI YANG HILANG ---
     const handleDownloadCategory = (categoryName, vouchersInCategory) => {
         downloadCategoryVoucherReport(activeShiftData, vouchersInCategory, categoryName, false);
     };
@@ -249,7 +243,6 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
                                 <div key={category}>
                                     <div className="flex justify-between items-center mb-2 sticky top-0 bg-gradient-to-b from-purple-100 to-transparent py-1">
                                         <h3 className="font-bold text-md">{category}</h3>
-                                        {/* 2. TOMBOL INI SEKARANG BISA MEMANGGIL FUNGSI DI ATAS */}
                                         <Button
                                             variant="ghost"
                                             size="icon"

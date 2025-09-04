@@ -31,6 +31,19 @@ export const fetchBankHawLogsAPI = async () => {
     return { success: true, data: data || [] };
 };
 
+export const adminReduceFromBankHawAPI = async (details) => {
+    const { amount, admin_name, description } = details;
+    const { data, error } = await supabase.rpc('admin_reduce_from_bank_haw', {
+        p_amount: amount,
+        p_admin_name: admin_name,
+        p_description: description
+    });
+
+    if (error) {
+        return { success: false, error: handleSupabaseError(error, "admin reduce from bank haw RPC") };
+    }
+    return { success: true, data };
+};
 
 /**
  * FUNGSI BARU: Memanggil RPC untuk menambah saldo oleh admin.

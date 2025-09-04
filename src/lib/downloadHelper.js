@@ -439,14 +439,17 @@ export const downloadBankHawReport = (logs) => {
   doc.setFontSize(18);
   doc.text("Laporan Riwayat Transaksi BANK HAW", pageWidth / 2, 20, { align: 'center' });
   doc.setFontSize(12);
-  doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, pageWidth / 2, 28, { align: 'center' });
+  doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}`, pageWidth / 2, 28, { align: 'center' });
 
   const tableBody = logs.map(log => {
-      const amountText = `${log.amount > 0 ? '+' : '-'} ${formatCurrency(Math.abs(log.amount))}`;
+      const amountValue = log.amount || 0;
+      const amountText = `${amountValue > 0 ? '+' : ''} ${formatCurrency(amountValue)}`;
+      
       return [
-          new Date(log.timestamp).toLocaleString('id-ID'),
+          new Date(log.timestamp).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }),
           log.activity_type.replace(/_/g, ' '),
-          log.actor,
+          log.actor, // Ini sekarang akan menjadi "Nama Shift"
+          log.location || '-', // Menambahkan kolom Lokasi
           log.description || '-',
           amountText,
           formatCurrency(log.new_balance)
@@ -455,15 +458,32 @@ export const downloadBankHawReport = (logs) => {
 
   autoTable(doc, {
       startY: 40,
-      head: [['WAKTU', 'AKTIVITAS', 'PELAKU', 'DESKRIPSI', 'JUMLAH', 'SALDO AKHIR']],
+      // Mengubah header tabel
+      head: [['WAKTU', 'AKTIVITAS', 'NAMA SHIFT', 'LOKASI', 'DESKRIPSI', 'JUMLAH', 'SALDO AKHIR']],
       body: tableBody,
       theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255], fontStyle: 'bold' },
+      headStyles: { 
+          fillColor: [30, 30, 30], 
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold' 
+      },
       styles: { fontSize: 8 },
       columnStyles: {
-          4: { halign: 'right' },
-          5: { halign: 'right' }
-      }
+          // Menyesuaikan perataan untuk struktur kolom baru
+          5: { halign: 'right' },
+          6: { halign: 'right' }
+      },
+      didDrawCell: (data) => {
+          // Logika pewarnaan tetap sama, hanya indeks kolomnya yang berubah
+          if (data.section === 'body' && data.column.index === 5) {
+              const text = data.cell.text[0];
+              if (text.startsWith('+')) {
+                  doc.setTextColor(26, 135, 84); // Hijau
+              } else if (text.startsWith('-')) {
+                  doc.setTextColor(220, 53, 69); // Merah
+              }
+          }
+      },
   });
 
   const fileName = `Laporan_BANK_HAW_${new Date().toLocaleDateString('sv')}.pdf`;

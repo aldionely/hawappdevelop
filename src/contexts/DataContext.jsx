@@ -3,16 +3,16 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { initialAppBalances, appBalanceKeysAndNames as appBalanceDefinitions } from "@/lib/shiftConstants";
 import { fetchWorkersAPI, addWorkerAPI, removeWorkerAPI, updateWorkerPasswordAPI } from "@/lib/api/workerService";
-import { fetchActiveShiftsAPI, updateActiveShiftAPI, endShiftAPI, fetchShiftArchivesAPI, removeShiftArchiveAPI } from "@/lib/api/shiftService";
+import { fetchActiveShiftsAPI, updateActiveShiftAPI, endShiftAPI, fetchShiftArchivesAPI, removeShiftArchiveAPI, adminEditShiftCashAPI, adminDepositShiftCashAPI } from "@/lib/api/shiftService";
 import { fetchAdminFeeRulesAPI, addAdminFeeRuleAPI, updateAdminFeeRuleAPI, removeAdminFeeRuleAPI } from "@/lib/api/adminFeeRuleService";
 import { fetchProductsAPI, addProductAPI, updateProductAPI, removeProductAPI } from "@/lib/api/productService";
-import { fetchVouchersAPI, addVoucherAPI, updateVoucherAPI, deleteVoucherAPI, updateVoucherStockAPI, fetchVoucherLogsAPI } from "@/lib/api/voucherService";
+import { fetchVouchersAPI, addVoucherAPI, updateVoucherAPI, deleteVoucherAPI, updateVoucherStockAPI, fetchVoucherLogsAPI, transferVoucherStockAPI } from "@/lib/api/voucherService";
 import { fetchAccessoriesAPI, addAccessoryAPI, updateAccessoryAPI, removeAccessoryAPI } from "@/lib/api/accessoryService";
 import { fetchLocationInventoryAPI, addInitialInventoryAPI, transferStockAPI, addStockToWarehouseAPI, updateLocationStockAPI } from "@/lib/api/inventoryService";
 import { fetchInventoryLogsAPI, logInventoryChangeAPI } from "@/lib/api/logService";
 import { fetchAppBalanceLogsAPI, logAppBalanceUpdateAPI } from "@/lib/api/appBalanceService";
 // --- MODIFIKASI: Impor semua layanan BANK HAW ---
-import { fetchBankHawBalanceAPI, fetchBankHawLogsAPI, adminAddToBankHawAPI, transferFromBankToShiftAPI, transferFromShiftToBankAPI } from "@/lib/api/bankHawService";
+import { fetchBankHawBalanceAPI, fetchBankHawLogsAPI, adminAddToBankHawAPI, transferFromBankToShiftAPI, transferFromShiftToBankAPI, adminReduceFromBankHawAPI } from "@/lib/api/bankHawService";
 import { handleSupabaseError } from "@/lib/errorHandler";
 import { transformShiftData, ensureValidAppBalances, parseSafeNumber } from "@/lib/dataTransformation";
 import { calculateProductAdminFee, updateAppBalancesFromTransaction } from "@/lib/productAndBalanceHelper";
@@ -144,6 +144,45 @@ export const DataProvider = ({ children }) => {
         // --- DEFINISI SEMUA FUNGSI ---
         const getActiveShiftForCurrentUser = () => { if (user && user.role === 'worker') { return (Array.isArray(activeShifts) && activeShifts.find(shift => shift.username === user.username)) || null; } return null; };
         const activeShift = getActiveShiftForCurrentUser();
+
+        const adminEditShiftCash = async (shiftId, newCashDetails) => {
+            const result = await adminEditShiftCashAPI(shiftId, newCashDetails);
+            if (result.success) await fetchShiftArchives();
+            return result;
+        };
+
+        const adminDepositShiftCash = async (shiftId, depositDetails) => {
+            if (!user) return { success: false, error: "User not found" };
+            const result = await adminDepositShiftCashAPI(shiftId, depositDetails, user.name);
+            if (result.success) {
+                await fetchShiftArchives();
+                await fetchBankHawBalance(); // Refresh saldo bank HAW
+            }
+            return result;
+        };
+
+        const transferVoucherStock = async (params) => {
+            const result = await transferVoucherStockAPI(params);
+            if (result.success) {
+                // Refresh data voucher setelah berhasil
+                await fetchVouchers();
+            }
+            return result;
+        };
+
+        const adminReduceFromBankHaw = async (amount, description) => {
+            if (!user || user.role !== 'admin') return { success: false, error: "Hanya admin yang bisa melakukan aksi ini."};
+            const result = await adminReduceFromBankHawAPI({
+                amount: parseSafeNumber(amount),
+                admin_name: user.name,
+                description: description
+            });
+            if (result.success) {
+                await fetchBankHawBalance();
+                await fetchBankHawLogs();
+            }
+            return result;
+        };
 
         // --- BARU: Fungsi untuk admin menambah saldo ---
         const adminAddToBankHaw = async (amount, description) => {
@@ -397,7 +436,7 @@ export const DataProvider = ({ children }) => {
             
             fetchAccessories, fetchInventoryLogs, addAccessory, updateAccessory, removeAccessory, transferStock, addStockToWarehouse, sellAccessoryAndUpdateShift, transferAppBalance, dailyAllowances, updateAllowance, createStockRequest, approveStockRequest, rejectStockRequest,
             
-            transferFromBankToShift, adminAddToBankHaw, // <-- Tambahkan fungsi baru
+            transferFromBankToShift, adminAddToBankHaw,  adminAddToBankHaw, adminReduceFromBankHaw, transferVoucherStock, adminEditShiftCash, adminDepositShiftCash,
         };
     }, [ user, workers, activeShifts, shiftArchives, adminFeeRules, products, vouchers, accessories, inventoryLogs, loadingData, currentUserAppBalanceLogs, accessories, inventoryLogs, stockRequests, dailyAllowances, bankHawBalance, bankHawLogs ])
 

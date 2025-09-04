@@ -61,6 +61,7 @@ export const endShiftAPI = async (shiftData, ensureValidAppBalancesFn, transform
       expectedbalance: typeof shiftData.expectedBalance === 'number' ? shiftData.expectedBalance : 0,
       selisih: typeof shiftData.selisih === 'number' ? shiftData.selisih : 0,
       notes: shiftData.notes,
+
       // --- PERUBAHAN DI SINI ---
       // Menyimpan hasil kalkulasi (Total Admin - Uang Makan) ke kolom 'totaladminfee'
       totaladminfee: typeof shiftData.totalAdminFee === 'number' ? shiftData.totalAdminFee : 0, 
@@ -71,6 +72,8 @@ export const endShiftAPI = async (shiftData, ensureValidAppBalancesFn, transform
       initial_app_balances: ensureValidAppBalancesFn(shiftData.initial_app_balances),
       initial_voucher_stock: shiftData.initial_voucher_stock || null,
       final_voucher_stock: shiftData.final_voucher_stock || null,
+      physical_cash_details: shiftData.physical_cash_details || null,
+
   };
 
   const { data, error: insertError } = await supabase.from('shift_archives').insert([archivePayload]).select();
@@ -92,5 +95,24 @@ export const fetchShiftArchivesAPI = async () => {
 export const removeShiftArchiveAPI = async (shiftId) => {
   const { error } = await supabase.from('shift_archives').delete().eq('id', shiftId);
   if (error) return { success: false, error: handleSupabaseError(error, "removing shift archive API") };
+  return { success: true };
+};
+
+export const adminEditShiftCashAPI = async (shiftId, newCashDetails) => {
+  const { error } = await supabase.rpc('admin_edit_shift_cash', {
+      p_shift_id: shiftId,
+      p_new_cash_details: newCashDetails
+  });
+  if (error) return { success: false, error: handleSupabaseError(error, "editing shift cash") };
+  return { success: true };
+};
+
+export const adminDepositShiftCashAPI = async (shiftId, depositDetails, adminName) => {
+  const { error } = await supabase.rpc('admin_deposit_shift_cash', {
+      p_shift_id: shiftId,
+      p_deposit_details: depositDetails,
+      p_admin_name: adminName
+  });
+  if (error) return { success: false, error: handleSupabaseError(error, "depositing shift cash") };
   return { success: true };
 };

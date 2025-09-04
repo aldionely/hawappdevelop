@@ -115,7 +115,7 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
     }
   };
 
-  const handleEndShiftLogic = async (actualKasAkhir, notes, uangMakan, finalAdminFee) => {
+  const handleEndShiftLogic = async (actualKasAkhir, notes, uangMakan, finalAdminFee, physicalCashDetails) => {
     let finalTransactions = [...shiftData.transactions];
 
     if (uangMakan > 0) {
@@ -154,7 +154,8 @@ export const ShiftInProgressManager = ({ initialShiftData, onShiftEnded }) => {
       app_balances: shiftData.app_balances,
       initial_app_balances: shiftData.initial_app_balances,
       initial_voucher_stock: shiftData.initial_voucher_stock || {},
-      final_voucher_stock: finalVoucherStock
+      final_voucher_stock: finalVoucherStock,
+      physical_cash_details: physicalCashDetails
     };
 
     const result = await endShift(finalShiftData);

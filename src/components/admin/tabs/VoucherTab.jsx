@@ -1,5 +1,3 @@
-// FILE: src/components/admin/tabs/VoucherTab.jsx (SUDAH DIPERBAIKI)
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -10,9 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { PlusCircle, Eye, Trash2, Edit, Plus, Minus } from 'lucide-react';
 import { formatNumberInput, parseFormattedNumber } from '@/lib/utils';
 
-// Komponen VoucherForm dan AddStockDialog tidak perlu diubah, jadi kita biarkan.
 const VoucherForm = ({ voucher, onSave, onCancel, locations }) => {
-    // ... (kode dari file Anda, tidak ada perubahan)
     const [name, setName] = useState(voucher ? voucher.name : '');
     const [category, setCategory] = useState(voucher ? voucher.category : '');
     const [location, setLocation] = useState(voucher ? voucher.location : locations[0] || '');
@@ -77,7 +73,6 @@ const VoucherForm = ({ voucher, onSave, onCancel, locations }) => {
 };
 
 const AddStockDialog = ({ voucher, onAddStock }) => {
-    // ... (kode dari file Anda, tidak ada perubahan)
     const [quantity, setQuantity] = useState('');
     const [displayQuantity, setDisplayQuantity] = useState('');
     const [description, setDescription] = useState('');
@@ -109,7 +104,6 @@ const AddStockDialog = ({ voucher, onAddStock }) => {
 };
 
 const VoucherLogsDialog = ({ voucher, logs }) => (
-    // ... (kode dari file Anda, tidak ada perubahan)
     <DialogContent className="max-h-[80vh] flex flex-col">
         <DialogHeader>
             <DialogTitle>Riwayat Stok: {voucher.name}</DialogTitle>
@@ -117,19 +111,22 @@ const VoucherLogsDialog = ({ voucher, logs }) => (
         </DialogHeader>
         <div className="flex-grow overflow-y-auto pr-4">
             <div className="space-y-3">
-                {logs.length > 0 ? logs.map(log => (
-                    <div key={log.id} className="text-sm border-b pb-2">
-                        <div className="flex justify-between items-center">
-                            <p className={`font-bold ${log.transaction_type === 'PENAMBAHAN' ? 'text-green-600' : 'text-red-600'}`}>
-                                {log.transaction_type} ({log.quantity_changed})
-                            </p>
-                            <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</p>
+                {logs.length > 0 ? logs.map(log => {
+                    const isPositive = ['PENAMBAHAN', 'OPER MASUK'].includes(log.transaction_type);
+                    return (
+                        <div key={log.id} className="text-sm border-b pb-2">
+                            <div className="flex justify-between items-center">
+                                <p className={`font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                    {log.transaction_type} ({log.quantity_changed > 0 ? `+${log.quantity_changed}` : log.quantity_changed})
+                                </p>
+                                <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</p>
+                            </div>
+                            <p>Stok: {log.previous_stock} &rarr; {log.new_stock}</p>
+                            <p className="text-xs">Oleh: {log.username}</p>
+                            {log.description && <p className="text-xs italic">"{log.description}"</p>}
                         </div>
-                        <p>Stok: {log.previous_stock} &rarr; {log.new_stock}</p>
-                        <p className="text-xs">Oleh: {log.username}</p>
-                        {log.description && <p className="text-xs italic">"{log.description}"</p>}
-                    </div>
-                )) : <p className="text-center text-muted-foreground">Tidak ada riwayat.</p>}
+                    );
+                }) : <p className="text-center text-muted-foreground">Tidak ada riwayat.</p>}
             </div>
         </div>
         <DialogFooter><DialogClose asChild><Button variant="outline">Tutup</Button></DialogClose></DialogFooter>
@@ -187,7 +184,6 @@ const ReduceStockDialog = ({ voucher, onReduceStock }) => {
 
 
 export const VoucherTab = () => {
-    // Ambil semua data voucher dari context, tidak perlu fetching manual di sini
     const { vouchers, addVoucher, updateVoucher, deleteVoucher, updateVoucherStock, fetchVoucherLogsAPI } = useData();
     const { toast } = useToast();
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -200,7 +196,6 @@ export const VoucherTab = () => {
 
     const locations = ['PIPITAN', 'SADIK'];
 
-    // Ambil daftar kategori unik dari semua voucher yang ada
     const categories = useMemo(() => {
         if (!filterLocation) return [];
         const uniqueCategories = new Set(
@@ -211,7 +206,6 @@ export const VoucherTab = () => {
         return Array.from(uniqueCategories).sort();
     }, [vouchers, filterLocation]);
     
-    // Filter voucher di sisi client berdasarkan state filter
     const groupedVouchers = useMemo(() => {
         if (!filterLocation || !filterCategory) return {};
         
@@ -338,8 +332,6 @@ export const VoucherTab = () => {
                                                         </DialogTrigger>
                                                         <ReduceStockDialog voucher={v} onReduceStock={(qty, desc) => updateVoucherStock(v.id, -qty, 'PENGURANGAN', desc)} />
                                                     </Dialog>
-
-                                                    {/* Tombol Penambahan (Sudah ada) */}
                                                     <Dialog>
                                                         <DialogTrigger asChild>
                                                             <Button variant="ghost" size="icon" className="h-6 w-6 text-green-500 hover:text-green-700" title="Tambah Stok">

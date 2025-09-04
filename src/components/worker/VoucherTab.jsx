@@ -5,11 +5,12 @@ import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Minus, Search, Download } from 'lucide-react';
+import { Plus, Minus, Search, Download, Shuffle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { formatNumberInput, parseFormattedNumber } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { downloadVoucherStockReport, downloadCategoryVoucherReport } from '@/lib/downloadHelper';
+import { TransferVoucherDialog } from './TransferVoucherDialog'; // Pastikan ini diimpor
 
 const AddStockDialog = ({ voucher, onConfirm }) => {
     const [quantity, setQuantity] = useState('');
@@ -51,7 +52,8 @@ const AddStockDialog = ({ voucher, onConfirm }) => {
     );
 };
 
-const VoucherItem = ({ voucher, onSell, onAddStock }) => {
+// --- MODIFIKASI UTAMA ADA DI SINI ---
+const VoucherItem = ({ voucher, onSell, onAddStock, onTransferStock }) => {
     const { toast } = useToast();
     const handleSellClick = () => {
         if (voucher.current_stock <= 0) {
@@ -67,7 +69,10 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
                 <p className="text-xs text-muted-foreground">Harga: Rp {voucher.sell_price.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">{voucher.category}</p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
+                 <Button size="icon" variant="outline" className="h-8 w-8 text-blue-600 hover:text-blue-700" title="Oper Stok" onClick={() => onTransferStock(voucher)}>
+                    <Shuffle size={14} />
+                </Button>
                 <Button size="icon" variant="outline" className="h-8 w-8" onClick={handleSellClick} disabled={voucher.current_stock <= 0}>
                     <Minus size={16} />
                 </Button>
@@ -84,6 +89,7 @@ const VoucherItem = ({ voucher, onSell, onAddStock }) => {
         </div>
     );
 };
+// --- AKHIR DARI MODIFIKASI UTAMA ---
 
 const VoucherHistoryList = ({ transactions }) => {
     const voucherSales = useMemo(() => {
@@ -142,6 +148,7 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
     const { vouchers, updateVoucherStock, sellVoucherAndUpdateShift } = useData();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
+    const [transferTarget, setTransferTarget] = useState(null);
 
     const categoryOrder = [
         "VCR SMARTFREN HARIAN", "VCR SMARTFREN UNL", "VCR INDOSAT UNL",
@@ -262,6 +269,7 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
                                                 voucher={voucher}
                                                 onSell={handleSellVoucher}
                                                 onAddStock={(qty, desc) => handleAddStock(voucher.id, qty, desc)}
+                                                onTransferStock={setTransferTarget}
                                             />
                                         ))}
                                     </div>
@@ -280,6 +288,12 @@ export const VoucherTab = ({ shiftLocation, activeShiftData }) => {
                     </div>
                 </TabsContent>
             </Tabs>
+            
+            <TransferVoucherDialog
+                isOpen={!!transferTarget}
+                onOpenChange={() => setTransferTarget(null)}
+                voucher={transferTarget}
+            />
         </div>
     );
 };

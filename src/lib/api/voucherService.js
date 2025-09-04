@@ -59,3 +59,21 @@ export const fetchVoucherLogsAPI = async (voucherId) => {
     if (error) return { success: false, error: handleSupabaseError(error, "fetching voucher logs API") };
     return { success: true, data: data || [] };
 };
+
+
+export const transferVoucherStockAPI = async (params) => {
+    const { fromVoucherId, toLocation, quantity, actorName, shiftId } = params;
+    const { data, error } = await supabase.rpc('transfer_voucher_stock', {
+        p_from_voucher_id: fromVoucherId,
+        p_to_location: toLocation,
+        p_quantity: quantity,
+        p_actor_name: actorName,
+        p_shift_id: shiftId
+    });
+
+    if (error) {
+        return { success: false, error: handleSupabaseError(error, "transfer voucher stock RPC") };
+    }
+    // RPC mengembalikan tabel dengan satu baris, jadi kita ambil baris pertama
+    return { success: data[0].success, message: data[0].message, data: data[0] };
+};

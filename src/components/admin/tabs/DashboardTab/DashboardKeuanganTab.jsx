@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Landmark, PlusCircle, Download } from 'lucide-react';
+import { Landmark, PlusCircle, Download, MinusCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { AddBankHawBalanceDialog } from './AddBankHawBalanceDialog';
-import { downloadBankHawReport } from '@/lib/downloadHelper'; // Impor fungsi download baru
+import { ReduceBankHawBalanceDialog } from './ReduceBankHawBalanceDialog';
+import { downloadBankHawReport } from '@/lib/downloadHelper';
 
-const BankHawStatsCard = ({ balance, onAddBalance }) => (
+const BankHawStatsCard = ({ balance, onAddBalance, onReduceBalance }) => (
     <div className="p-6 rounded-lg bg-gradient-to-br from-gray-700 to-gray-900 text-white shadow-lg">
         <div className="flex justify-between items-start">
             <div>
@@ -19,9 +20,14 @@ const BankHawStatsCard = ({ balance, onAddBalance }) => (
                 </p>
                 <p className="text-sm text-gray-400 mt-1">Total dana pusat yang tersedia.</p>
             </div>
-            <Button size="sm" className="bg-yellow-400 text-gray-900 hover:bg-yellow-300" onClick={onAddBalance}>
-                <PlusCircle size={16} className="mr-2"/> Tambah Saldo
-            </Button>
+            <div className="flex space-x-2">
+                <Button size="sm" className="bg-red-500 text-white hover:bg-red-600" onClick={onReduceBalance}>
+                    <MinusCircle size={16} className="mr-2"/> Kurangi Saldo
+                </Button>
+                <Button size="sm" className="bg-yellow-400 text-gray-900 hover:bg-yellow-300" onClick={onAddBalance}>
+                    <PlusCircle size={16} className="mr-2"/> Tambah Saldo
+                </Button>
+            </div>
         </div>
     </div>
 );
@@ -74,10 +80,10 @@ const BankHawHistoryTab = () => {
     );
 };
 
-
 export const DashboardKeuanganTab = () => {
     const { bankHawBalance, fetchBankHawBalance, fetchBankHawLogs } = useData();
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isReduceDialogOpen, setIsReduceDialogOpen] = useState(false);
 
     useEffect(() => {
         fetchBankHawBalance();
@@ -96,7 +102,11 @@ export const DashboardKeuanganTab = () => {
                         {bankHawBalance === null ? (
                             <p>Memuat saldo...</p>
                         ) : (
-                            <BankHawStatsCard balance={bankHawBalance} onAddBalance={() => setIsAddDialogOpen(true)} />
+                            <BankHawStatsCard 
+                                balance={bankHawBalance} 
+                                onAddBalance={() => setIsAddDialogOpen(true)} 
+                                onReduceBalance={() => setIsReduceDialogOpen(true)} 
+                            />
                         )}
                     </div>
                     <div className="mt-4 p-3 border rounded-lg bg-gray-50 text-xs text-gray-600">
@@ -113,6 +123,7 @@ export const DashboardKeuanganTab = () => {
                 </TabsContent>
             </Tabs>
             <AddBankHawBalanceDialog isOpen={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} />
+            <ReduceBankHawBalanceDialog isOpen={isReduceDialogOpen} onOpenChange={setIsReduceDialogOpen} />
         </>
     );
 };
